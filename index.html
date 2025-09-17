@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ko">
+<head>
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrendTrip | 감정·트렌드·예산 기반 여행 추천</title>
+  <meta name="description" content="감정·트렌드·예산·날씨를 반영해 맞춤 여행 코스와 루트를 추천합니다." />
+  <meta name="keywords" content="여행, 추천, 감정, 트렌드, 예산, 코스, 루트, 서울" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🧭</text></svg>">
+
+  <meta property="og:title" content="TrendTrip" />
+  <meta property="og:description" content="감정·트렌드·예산을 반영한 맞춤 여행 코스" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://dummyimage.com/1200x630/0ea5e9/ffffff&text=TrendTrip" />
+  <meta name="theme-color" content="#0ea5e9">
+
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root{
+      --brand:#0ea5e9;
+      --brand-600:#0284c7;
+    }
+    html,body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
+    .chip{padding:.4rem .9rem;border:1px solid #e5e7eb;border-radius:9999px;cursor:pointer;transition:.15s}
+    .chip:hover{background:#f8fafc}
+    .chip--active{background:#e0f2fe;border-color:#7dd3fc}
+    .card{border-radius:1.25rem;box-shadow:0 8px 30px rgba(2,132,199,.08);padding:1.1rem;background:#fff}
+    .btn{padding:.65rem 1rem;border-radius:.9rem;font-weight:700;transition:.12s;display:inline-flex;align-items:center;gap:.5rem}
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(0)}
+    .btn-primary{background:var(--brand);color:#fff}
+    .btn-outline{background:#fff;border:1px solid #e5e7eb}
+    .badge{padding:.25rem .55rem;border-radius:.5rem;background:#f1f5f9;font-size:.7rem}
+    .glass{
+      background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.6));
+      backdrop-filter:saturate(160%) blur(8px);
+      border:1px solid rgba(255,255,255,.3);
+      border-radius:1.25rem;
+    }
+    .section{scroll-margin-top:80px}
+  </style>
+</head>
+<body class="bg-gradient-to-b from-sky-50 via-white to-white text-gray-800">
+
+  <header class="sticky top-0 z-40">
+    <div class="glass max-w-7xl mx-auto my-3 px-4 py-3 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2 font-extrabold text-lg">
+        <span class="text-2xl">🧭</span> TrendTrip
+      </a>
+      <nav class="hidden sm:flex gap-2 text-sm">
+        <a class="chip" href="#features">기능</a>
+        <a class="chip" href="#discover">추천</a>
+        <a class="chip" href="#map">지도</a>
+        <a class="chip" href="#plan">내 플랜</a>
+      </nav>
+    </div>
+  </header>
+
+
+  <section class="section" id="home">
+    <div class="max-w-7xl mx-auto px-4 pt-8 pb-12 grid md:grid-cols-2 gap-8 items-center">
+      <div>
+        <span class="badge">감정·트렌드·예산 기반</span>
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight mt-3">
+          오늘의 기분으로 시작하는<br><span class="text-sky-600">맞춤 여행 코스</span>
+        </h1>
+        <p class="text-gray-600 mt-4">
+          감정 키워드, 현재 날씨, 예산과 시간을 반영해 코스 후보를 선별하고
+          지도 위 동선까지 한 번에 보여줍니다.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-3">
+          <button id="btnQuick" class="btn btn-primary">빠르게 체험하기</button>
+          <a class="btn btn-outline" href="#discover">추천부터 보기</a>
+        </div>
+        <p class="mt-3 text-xs text-gray-500">* 심사용 공개 버전 — 실제 API 전환 가능 구조</p>
+      </div>
+      <div class="card">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="card"><div class="text-xs text-gray-500">입력</div><div class="font-semibold">감정·날씨·예산·시간</div></div>
+          <div class="card"><div class="text-xs text-gray-500">분석</div><div class="font-semibold">감정→테마 매핑</div></div>
+          <div class="card"><div class="text-xs text-gray-500">추천</div><div class="font-semibold">FOMO 상위 후보</div></div>
+          <div class="card"><div class="text-xs text-gray-500">결과</div><div class="font-semibold">최적 루트 & 저장</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="section" id="features">
+    <div class="max-w-7xl mx-auto px-4 pb-6 grid md:grid-cols-3 gap-6">
+
+      <div class="card">
+        <h3 class="font-bold mb-3">1) 감정 입력</h3>
+        <div id="emotionChips" class="flex flex-wrap gap-2"></div>
+        <input id="customEmotion" class="mt-3 w-full border rounded-xl px-3 py-2" placeholder="직접 입력 (예: 설렘, 무기력)" />
+      </div>
+
+      <div class="card">
+        <h3 class="font-bold mb-3">2) 날씨 & 실내/실외</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <label class="text-sm w-16">날씨</label>
+          <select id="weather" class="border rounded-xl px-3 py-2 flex-1">
+            <option value="sunny">맑음</option>
+            <option value="cloudy">흐림</option>
+            <option value="rainy">비</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm w-16">선호</label>
+          <select id="inout" class="border rounded-xl px-3 py-2 flex-1">
+            <option value="any">상관없음</option>
+            <option value="indoor">실내</option>
+            <option value="outdoor">실외</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="font-bold mb-3">3) 예산 & 시간</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <label class="text-sm w-20">예산(₩)</label>
+          <input id="budget" type="number" class="border rounded-xl px-3 py-2 w-40" value="60000" />
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm w-20">시간</label>
+          <select id="hours" class="border rounded-xl px-3 py-2 w-40">
+            <option value="4">반나절(4h)</option>
+            <option value="8" selected>하루(8h)</option>
+            <option value="12">넉넉히(12h)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 pb-2">
+      <div class="card flex flex-wrap gap-3 items-center">
+        <button id="btnRecommend" class="btn btn-primary">추천 보기</button>
+        <button id="btnRoute" class="btn btn-outline">루트 생성</button>
+        <span id="status" class="text-sm text-gray-500"></span>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="section" id="discover">
+    <div class="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-6">
+      <div class="card">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold">추천 장소</h3>
+          <span class="badge">FOMO 상위순</span>
+        </div>
+        <ul id="list" class="space-y-3"></ul>
+      </div>
+      <div class="card" id="mapCard">
+        <h3 class="font-bold mb-3">지도</h3>
+        <div id="map" class="w-full h-[440px] rounded-xl"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="section" id="plan">
+    <div class="max-w-7xl mx-auto px-4 my-6 card">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold">내 플랜</h3>
+        <div class="flex gap-2">
+          <button id="btnSave" class="btn btn-primary">저장</button>
+          <button id="btnLoad" class="btn btn-outline">불러오기</button>
+        </div>
+      </div>
+      <ol id="route" class="list-decimal list-inside text-sm text-gray-700"></ol>
+    </div>
+  </section>
+
+
+  <footer class="mt-10 border-t">
+    <div class="max-w-7xl mx-auto px-4 py-8 text-sm text-gray-500 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div>© <span id="yy"></span> TrendTrip. All rights reserved.</div>
+      <div class="flex items-center gap-3">
+        <span class="badge">공개버전 · 샘플데이터</span>
+        <a class="text-sky-600 hover:underline" href="#home">맨 위로</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+
+    document.getElementById('yy').textContent = new Date().getFullYear();
+
+
+    const PLACES = [
+      { id:1, name:"경복궁", lat:37.5796, lng:126.9770, type:"outdoor", cost:3000, themes:["역사","힐링"], fomo:88 },
+      { id:2, name:"북촌한옥마을", lat:37.5826, lng:126.9830, type:"outdoor", cost:0, themes:["감성","산책"], fomo:91 },
+      { id:3, name:"익선동 카페", lat:37.5724, lng:126.9917, type:"indoor", cost:7000, themes:["위로","감성"], fomo:84 },
+      { id:4, name:"국립현대미술관 서울", lat:37.5790, lng:126.9803, type:"indoor", cost:4000, themes:["사색","힐링"], fomo:76 },
+      { id:5, name:"청계천 산책", lat:37.5690, lng:126.9780, type:"outdoor", cost:0, themes:["정화","산책"], fomo:73 },
+      { id:6, name:"롯데월드타워 전망대", lat:37.5131, lng:127.1029, type:"indoor", cost:27000, themes:["설렘","뷰"], fomo:95 },
+      { id:7, name:"홍대 스트리트", lat:37.5550, lng:126.9236, type:"outdoor", cost:0, themes:["활기","트렌드"], fomo:90 },
+      { id:8, name:"더현대 서울", lat:37.5261, lng:126.9287, type:"indoor", cost:0, themes:["트렌드","실내"], fomo:86 },
+      { id:9, name:"남산서울타워", lat:37.5512, lng:126.9882, type:"outdoor", cost:16000, themes:["설렘","뷰"], fomo:89 },
+      { id:10,name:"DDP 전시", lat:37.5665, lng:127.0094, type:"indoor", cost:12000, themes:["미래","디자인"], fomo:78 },
+    ];
+
+    const EMOTIONS = ["우울","무기력","설렘","지침","답답","외로움","행복","짜증","권태","힐링"];
+    const EMOTION_TO_THEMES = {
+      "우울":["위로","힐링","정화"],
+      "무기력":["설렘","뷰","활기"],
+      "설렘":["설렘","뷰"],
+      "지침":["힐링","사색"],
+      "답답":["산책","정화"],
+      "외로움":["감성","위로"],
+      "행복":["트렌드","뷰"],
+      "짜증":["사색","정화"],
+      "권태":["트렌드","활기"],
+      "힐링":["힐링","사색"],
+    };
+
+
+    const chips = document.getElementById('emotionChips');
+    const customEmotion = document.getElementById('customEmotion');
+    const weatherSel = document.getElementById('weather');
+    const inoutSel = document.getElementById('inout');
+    const budgetInp = document.getElementById('budget');
+    const hoursSel = document.getElementById('hours');
+    const listEl = document.getElementById('list');
+    const statusEl = document.getElementById('status');
+    const routeEl = document.getElementById('route');
+
+
+    let selectedEmotion = null;
+    EMOTIONS.forEach(e => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = e;
+      b.onclick = () => { selectedEmotion = e; highlightChips(e); };
+      chips.appendChild(b);
+    });
+    function highlightChips(val){
+      [...chips.children].forEach(c=>{
+        c.classList.toggle('chip--active', c.textContent===val);
+      });
+    }
+
+
+    let map, markersLayer, routeLine;
+    function initMap(){
+      map = L.map('map').setView([37.5665,126.9780], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        maxZoom: 19, attribution: '© OpenStreetMap'
+      }).addTo(map);
+      markersLayer = L.layerGroup().addTo(map);
+    }
+    initMap();
+
+
+    function filterByInputs(){
+      const emotion = selectedEmotion || customEmotion.value.trim();
+      const themes = EMOTION_TO_THEMES[emotion] || [emotion].filter(Boolean);
+      const weather = weatherSel.value;
+      const inout = inoutSel.value;
+      const budget = Number(budgetInp.value || 0);
+
+      const weatherBoost = (p)=>{
+        if(weather==='rainy' && p.type==='indoor') return 6;
+        if(weather==='sunny' && p.type==='outdoor') return 4;
+        return 0;
+      };
+      const ioPass = (p)=> inout==='any' ? true : p.type===inout;
+
+      const perPlaceAvg = 10000;
+      const maxPlaces = Math.max(2, Math.min(6, Math.floor((Number(hoursSel.value)||8)/2)));
+      const roughMaxPerPlace = Math.max(0, Math.floor(budget / maxPlaces));
+
+      const scored = PLACES.map(p=>{
+        const themeHit = themes.some(t=>p.themes.includes(t)) ? 8 : 0;
+        const fomo = p.fomo/10;
+        const priceOk = p.cost <= (roughMaxPerPlace || Infinity) ? 3 : -3;
+        const score = themeHit + weatherBoost(p) + fomo + priceOk;
+        return {...p, score};
+      }).filter(ioPass)
+        .sort((a,b)=> b.score - a.score)
+        .slice(0, 8);
+
+      return {scored, emotion, maxPlaces};
+    }
+
+
+    function renderList(items){
+      listEl.innerHTML = '';
+      markersLayer.clearLayers();
+      items.forEach((p)=>{
+        const li = document.createElement('li');
+        li.className = "p-2 rounded-xl hover:bg-slate-50";
+        li.innerHTML = `
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 flex items-center justify-center rounded-xl bg-sky-50 text-sky-700 font-bold">${Math.round(p.fomo)}</div>
+            <div class="flex-1">
+              <div class="font-semibold">${p.name}</div>
+              <div class="text-xs text-gray-500">${p.type==='indoor'?'실내':'실외'} · 예상비용 ~${p.cost.toLocaleString()}원 · 테마: ${p.themes.join(', ')}</div>
+            </div>
+            <button class="btn btn-outline" onclick='addToPlan(${p.id})'>추가</button>
+          </div>`;
+        listEl.appendChild(li);
+        const m = L.marker([p.lat,p.lng]).bindPopup(p.name);
+        markersLayer.addLayer(m);
+      });
+      if(items[0]) map.setView([items[0].lat, items[0].lng], 12);
+    }
+
+
+    const plan = [];
+    function addToPlan(id){
+      const p = PLACES.find(x=>x.id===id);
+      if(!p) return;
+      if(plan.find(x=>x.id===id)) return;
+      plan.push(p);
+      renderPlan();
+    }
+    function renderPlan(){
+      routeEl.innerHTML = '';
+      plan.forEach((p,i)=>{
+        const li = document.createElement('li');
+        li.className = 'mb-1';
+        li.textContent = `${i+1}. ${p.name}`;
+        routeEl.appendChild(li);
+      });
+      drawRoute();
+    }
+    function drawRoute(){
+      if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
+      if(plan.length < 2) return;
+      const latlngs = plan.map(p=> [p.lat,p.lng]);
+      routeLine = L.polyline(latlngs, {weight:5, opacity:.9, color:'#0ea5e9'}).addTo(map);
+      map.fitBounds(routeLine.getBounds(), {padding:[20,20]});
+    }
+
+
+    document.getElementById('btnRecommend').onclick = ()=>{
+      const {scored, emotion} = filterByInputs();
+      renderList(scored);
+      statusEl.textContent = emotion ? `“${emotion}” 감정 기반 추천을 적용했습니다.` : '감정을 선택/입력하면 더 정교해져요.';
+    };
+    document.getElementById('btnRoute').onclick = ()=>{
+      const {scored, maxPlaces} = filterByInputs();
+      plan.splice(0, plan.length, ...scored.slice(0, Math.min(maxPlaces, scored.length)));
+      renderPlan();
+      statusEl.textContent = `예산/시간을 반영해 ${plan.length}곳 경로를 구성했습니다.`;
+    };
+    document.getElementById('btnQuick').onclick = ()=>{
+      selectedEmotion = '무기력'; highlightChips('무기력');
+      weatherSel.value = 'sunny'; inoutSel.value='any'; budgetInp.value=60000; hoursSel.value=8;
+      const {scored} = filterByInputs();
+      renderList(scored);
+      plan.splice(0, plan.length, ...scored.slice(0,4));
+      renderPlan();
+      statusEl.textContent = '빠른 체험 시나리오를 적용했습니다.';
+    };
+    document.getElementById('btnSave').onclick = ()=>{
+      localStorage.setItem('trendtrip_plan', JSON.stringify(plan));
+      alert('플랜이 저장되었습니다.');
+    };
+    document.getElementById('btnLoad').onclick = ()=>{
+      const raw = localStorage.getItem('trendtrip_plan');
+      if(!raw){ alert('저장된 플랜이 없습니다.'); return; }
+      const items = JSON.parse(raw) || [];
+      plan.splice(0, plan.length, ...items);
+      renderPlan();
+      statusEl.textContent='저장된 플랜을 불러왔습니다.';
+    };
+  </script>
+</body>
+</html>
