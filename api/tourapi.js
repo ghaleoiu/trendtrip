@@ -9,9 +9,9 @@ export default async function handler(req, res) {
     // 저장된 키가 인코딩돼 있을 수도 있어 한 번 정규화
     try { key = decodeURIComponent(key); } catch {}
 
-    const BASE = "https://apis.data.go.kr/B551011/KorService2";
+    const BASE = "https://apis.data.go.kr/B551011/KorService1";
     const common = {
-      serviceKey: key,           // ❗️절대 encodeURIComponent 하지 말 것 (URLSearchParams가 처리)
+      serviceKey: key,           
       MobileOS: "ETC",
       MobileApp: "TrendTrip",
       _type: "json",
