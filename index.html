@@ -1,35 +1,28 @@
 <!doctype html>
 <html lang="ko">
 <head>
-
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>TrendTrip | 감정·트렌드·예산 기반 여행 추천</title>
   <meta name="description" content="감정·트렌드·예산·날씨를 반영해 맞춤 여행 코스와 루트를 추천합니다." />
-  <meta name="keywords" content="여행, 추천, 감정, 트렌드, 예산, 코스, 루트, 서울" />
+  <meta name="keywords" content="여행, 추천, 감정, 트렌드, 예산, 코스, 루트, 관광, 한국관광공사, TourAPI" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🧭</text></svg>">
-
   <meta property="og:title" content="TrendTrip" />
   <meta property="og:description" content="감정·트렌드·예산을 반영한 맞춤 여행 코스" />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="https://dummyimage.com/1200x630/0ea5e9/ffffff&text=TrendTrip" />
   <meta name="theme-color" content="#0ea5e9">
 
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
 
-
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
-    :root{
-      --brand:#0ea5e9;
-      --brand-600:#0284c7;
-    }
+    :root{ --brand:#0ea5e9 }
     html,body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
     .chip{padding:.4rem .9rem;border:1px solid #e5e7eb;border-radius:9999px;cursor:pointer;transition:.15s}
     .chip:hover{background:#f8fafc}
@@ -37,21 +30,16 @@
     .card{border-radius:1.25rem;box-shadow:0 8px 30px rgba(2,132,199,.08);padding:1.1rem;background:#fff}
     .btn{padding:.65rem 1rem;border-radius:.9rem;font-weight:700;transition:.12s;display:inline-flex;align-items:center;gap:.5rem}
     .btn:hover{transform:translateY(-1px)}
-    .btn:active{transform:translateY(0)}
     .btn-primary{background:var(--brand);color:#fff}
     .btn-outline{background:#fff;border:1px solid #e5e7eb}
     .badge{padding:.25rem .55rem;border-radius:.5rem;background:#f1f5f9;font-size:.7rem}
-    .glass{
-      background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.6));
-      backdrop-filter:saturate(160%) blur(8px);
-      border:1px solid rgba(255,255,255,.3);
-      border-radius:1.25rem;
-    }
+    .glass{background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.6));backdrop-filter:saturate(160%) blur(8px);border:1px solid rgba(255,255,255,.3);border-radius:1.25rem}
     .section{scroll-margin-top:80px}
   </style>
 </head>
 <body class="bg-gradient-to-b from-sky-50 via-white to-white text-gray-800">
 
+  <!-- Header -->
   <header class="sticky top-0 z-40">
     <div class="glass max-w-7xl mx-auto my-3 px-4 py-3 flex items-center justify-between">
       <a href="#" class="flex items-center gap-2 font-extrabold text-lg">
@@ -66,7 +54,7 @@
     </div>
   </header>
 
-
+  <!-- Hero -->
   <section class="section" id="home">
     <div class="max-w-7xl mx-auto px-4 pt-8 pb-12 grid md:grid-cols-2 gap-8 items-center">
       <div>
@@ -95,16 +83,18 @@
     </div>
   </section>
 
-
+  <!-- Controls -->
   <section class="section" id="features">
     <div class="max-w-7xl mx-auto px-4 pb-6 grid md:grid-cols-3 gap-6">
 
+      <!-- 감정 -->
       <div class="card">
         <h3 class="font-bold mb-3">1) 감정 입력</h3>
         <div id="emotionChips" class="flex flex-wrap gap-2"></div>
         <input id="customEmotion" class="mt-3 w-full border rounded-xl px-3 py-2" placeholder="직접 입력 (예: 설렘, 무기력)" />
       </div>
 
+      <!-- 날씨/실내외 -->
       <div class="card">
         <h3 class="font-bold mb-3">2) 날씨 & 실내/실외</h3>
         <div class="flex items-center gap-2 mb-2">
@@ -125,6 +115,7 @@
         </div>
       </div>
 
+      <!-- 예산/시간 -->
       <div class="card">
         <h3 class="font-bold mb-3">3) 예산 & 시간</h3>
         <div class="flex items-center gap-2 mb-2">
@@ -142,16 +133,26 @@
       </div>
     </div>
 
+    <!-- 지역 선택 -->
     <div class="max-w-7xl mx-auto px-4 pb-2">
-      <div class="card flex flex-wrap gap-3 items-center">
-        <button id="btnRecommend" class="btn btn-primary">추천 보기</button>
-        <button id="btnRoute" class="btn btn-outline">루트 생성</button>
+      <div class="card flex flex-wrap items-center gap-3">
+        <div class="font-bold mr-2">지역 선택</div>
+        <select id="sido" class="border rounded-xl px-3 py-2">
+          <option value="1"  data-center="37.5665,126.9780">서울특별시</option>
+          <option value="6"  data-center="35.1796,129.0756">부산광역시</option>
+          <option value="39" data-center="33.4996,126.5312">제주특별자치도</option>
+        </select>
+        <button id="btnAreaLoad" class="btn btn-outline">지역 불러오기</button>
+        <div class="ml-auto flex gap-2">
+          <button id="btnRecommend" class="btn btn-primary">추천 보기</button>
+          <button id="btnRoute" class="btn btn-outline">루트 생성</button>
+        </div>
         <span id="status" class="text-sm text-gray-500"></span>
       </div>
     </div>
   </section>
 
-
+  <!-- Discover / Map -->
   <section class="section" id="discover">
     <div class="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-6">
       <div class="card">
@@ -168,7 +169,7 @@
     </div>
   </section>
 
-
+  <!-- Plan -->
   <section class="section" id="plan">
     <div class="max-w-7xl mx-auto px-4 my-6 card">
       <div class="flex items-center justify-between mb-3">
@@ -182,7 +183,7 @@
     </div>
   </section>
 
-
+  <!-- Footer -->
   <footer class="mt-10 border-t">
     <div class="max-w-7xl mx-auto px-4 py-8 text-sm text-gray-500 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>© <span id="yy"></span> TrendTrip. All rights reserved.</div>
@@ -194,11 +195,17 @@
   </footer>
 
   <script>
-
+    // ===== 기본 설정 =====
     document.getElementById('yy').textContent = new Date().getFullYear();
 
+    // ⚠️ 여기를 네 Vercel 주소로!
+    const TOURAPI_PROXY = "https://trendtrip.vercel.app/api/tourapi";
 
-    const PLACES = [
+    // 지도 초기 중심(서울 시청)
+    const CENTER = { lat: 37.5665, lng: 126.9780 };
+
+    // 실패/로컬 테스트 대비 목업
+    const MOCK_PLACES = [
       { id:1, name:"경복궁", lat:37.5796, lng:126.9770, type:"outdoor", cost:3000, themes:["역사","힐링"], fomo:88 },
       { id:2, name:"북촌한옥마을", lat:37.5826, lng:126.9830, type:"outdoor", cost:0, themes:["감성","산책"], fomo:91 },
       { id:3, name:"익선동 카페", lat:37.5724, lng:126.9917, type:"indoor", cost:7000, themes:["위로","감성"], fomo:84 },
@@ -210,6 +217,7 @@
       { id:9, name:"남산서울타워", lat:37.5512, lng:126.9882, type:"outdoor", cost:16000, themes:["설렘","뷰"], fomo:89 },
       { id:10,name:"DDP 전시", lat:37.5665, lng:127.0094, type:"indoor", cost:12000, themes:["미래","디자인"], fomo:78 },
     ];
+    let PLACES = [...MOCK_PLACES];
 
     const EMOTIONS = ["우울","무기력","설렘","지침","답답","외로움","행복","짜증","권태","힐링"];
     const EMOTION_TO_THEMES = {
@@ -225,7 +233,7 @@
       "힐링":["힐링","사색"],
     };
 
-
+    // ===== DOM =====
     const chips = document.getElementById('emotionChips');
     const customEmotion = document.getElementById('customEmotion');
     const weatherSel = document.getElementById('weather');
@@ -235,8 +243,10 @@
     const listEl = document.getElementById('list');
     const statusEl = document.getElementById('status');
     const routeEl = document.getElementById('route');
+    const sidoSel = document.getElementById('sido');
+    const btnAreaLoad = document.getElementById('btnAreaLoad');
 
-
+    // ===== 감정 Chips =====
     let selectedEmotion = null;
     EMOTIONS.forEach(e => {
       const b = document.createElement('button');
@@ -246,15 +256,13 @@
       chips.appendChild(b);
     });
     function highlightChips(val){
-      [...chips.children].forEach(c=>{
-        c.classList.toggle('chip--active', c.textContent===val);
-      });
+      [...chips.children].forEach(c=> c.classList.toggle('chip--active', c.textContent===val));
     }
 
-
+    // ===== 지도 =====
     let map, markersLayer, routeLine;
     function initMap(){
-      map = L.map('map').setView([37.5665,126.9780], 12);
+      map = L.map('map').setView([CENTER.lat, CENTER.lng], 12);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
         maxZoom: 19, attribution: '© OpenStreetMap'
       }).addTo(map);
@@ -262,7 +270,70 @@
     }
     initMap();
 
+    function setMapCenter(lat, lng, zoom=12){
+      map.setView([lat, lng], zoom);
+    }
 
+    // ===== TourAPI 호출 =====
+    function deriveThemesFromTitle(t=''){
+      const tags = [];
+      if (/공원|숲|산책|천|호수|섬|오름/.test(t)) tags.push('산책','힐링');
+      if (/타워|전망|스카이|뷰|포토/.test(t)) tags.push('뷰','설렘');
+      if (/박물관|미술관|역사|궁|성|전시/.test(t)) tags.push('역사','사색');
+      if (!tags.length) tags.push('트렌드');
+      return Array.from(new Set(tags));
+    }
+
+    function mapItemsToPlaces(items){
+      return (items || []).map((it, idx)=>({
+        id: idx+1,
+        name: it.title,
+        lat: Number(it.mapy),
+        lng: Number(it.mapx),
+        type: (String(it.contenttypeid)==='14' || /박물관|미술관|전시/.test(it.title)) ? 'indoor' : 'outdoor',
+        cost: 0,
+        themes: deriveThemesFromTitle(it.title || ""),
+        fomo: 70 + (idx % 25)
+      })).filter(p=>isFinite(p.lat)&&isFinite(p.lng));
+    }
+
+    async function loadPlacesByLocation(center=CENTER, radius=5000){
+      const u = new URL(TOURAPI_PROXY);
+      u.searchParams.set("by","location");
+      u.searchParams.set("mapX", center.lng);
+      u.searchParams.set("mapY", center.lat);
+      u.searchParams.set("radius", String(radius));
+      try{
+        const r = await fetch(u.toString());
+        const data = await r.json();
+        const items = data?.response?.body?.items?.item || [];
+        PLACES = mapItemsToPlaces(items);
+      }catch(e){
+        console.error('TourAPI(location) error:', e);
+        PLACES = [...MOCK_PLACES];
+      }
+    }
+
+    async function loadPlacesByArea(areaCode, sigunguCode){
+      const u = new URL(TOURAPI_PROXY);
+      u.searchParams.set("by","area");
+      u.searchParams.set("areaCode", String(areaCode));
+      if (sigunguCode) u.searchParams.set("sigunguCode", String(sigunguCode));
+      u.searchParams.set("numOfRows","100");
+      try{
+        const r = await fetch(u.toString());
+        const data = await r.json();
+        const items = data?.response?.body?.items?.item || [];
+        PLACES = mapItemsToPlaces(items);
+        return PLACES.length;
+      }catch(e){
+        console.error('TourAPI(area) error:', e);
+        PLACES = [...MOCK_PLACES];
+        return 0;
+      }
+    }
+
+    // ===== 추천/필터 =====
     function filterByInputs(){
       const emotion = selectedEmotion || customEmotion.value.trim();
       const themes = EMOTION_TO_THEMES[emotion] || [emotion].filter(Boolean);
@@ -277,7 +348,6 @@
       };
       const ioPass = (p)=> inout==='any' ? true : p.type===inout;
 
-      const perPlaceAvg = 10000;
       const maxPlaces = Math.max(2, Math.min(6, Math.floor((Number(hoursSel.value)||8)/2)));
       const roughMaxPerPlace = Math.max(0, Math.floor(budget / maxPlaces));
 
@@ -289,11 +359,10 @@
         return {...p, score};
       }).filter(ioPass)
         .sort((a,b)=> b.score - a.score)
-        .slice(0, 8);
+        .slice(0, 12);
 
       return {scored, emotion, maxPlaces};
     }
-
 
     function renderList(items){
       listEl.innerHTML = '';
@@ -317,7 +386,7 @@
       if(items[0]) map.setView([items[0].lat, items[0].lng], 12);
     }
 
-
+    // ===== 플랜/루트 =====
     const plan = [];
     function addToPlan(id){
       const p = PLACES.find(x=>x.id===id);
@@ -344,7 +413,7 @@
       map.fitBounds(routeLine.getBounds(), {padding:[20,20]});
     }
 
-
+    // ===== 이벤트 =====
     document.getElementById('btnRecommend').onclick = ()=>{
       const {scored, emotion} = filterByInputs();
       renderList(scored);
@@ -377,6 +446,26 @@
       renderPlan();
       statusEl.textContent='저장된 플랜을 불러왔습니다.';
     };
+
+    // 지역 불러오기
+    btnAreaLoad.addEventListener('click', async ()=>{
+      const opt = sidoSel.selectedOptions[0];
+      const areaCode = opt.value;
+      const [lat, lng] = opt.dataset.center.split(',').map(Number);
+      statusEl.textContent = '지역 데이터를 불러오는 중…';
+      const n = await loadPlacesByArea(areaCode);
+      setMapCenter(lat, lng, 11);
+      const { scored } = filterByInputs();
+      renderList(scored);
+      statusEl.textContent = `${opt.text}에서 ${n}개 후보를 불러왔습니다.`;
+    });
+
+    // 최초 진입: 서울 기준 반경 검색(프록시가 준비 안 됐으면 목업으로 표시)
+    (async ()=>{
+      await loadPlacesByLocation(CENTER, 4000);
+      const { scored } = filterByInputs();
+      renderList(scored);
+    })();
   </script>
 </body>
 </html>
