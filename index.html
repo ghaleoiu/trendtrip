@@ -3,20 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TrendTrip | 서울 구 단위 자동 코스 생성</title>
-  <meta name="description" content="감정·날씨·예산·숙박을 반영해 서울 구 단위 자동 코스를 생성합니다." />
+  <title>TrendTrip | 서울 구 단위 자동 코스 (제안 1~3)</title>
+  <meta name="description" content="서울 구 단위로 숙소까지 포함된 자동 여행 코스를 2~3가지 제안합니다." />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root{ --brand:#0ea5e9 }
     html,body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
-    .card{border-radius:1.25rem;box-shadow:0 8px 30px rgba(2,132,199,.08);padding:1.1rem;background:#fff}
-    .btn{padding:.65rem 1rem;border-radius:.9rem;font-weight:700;transition:.12s;display:inline-flex;align-items:center;gap:.5rem}
+    .card{border-radius:1.25rem;box-shadow:0 8px 30px rgba(2,132,199,.08);padding:1rem;background:#fff}
+    .btn{padding:.6rem 1rem;border-radius:.9rem;font-weight:700;transition:.12s;display:inline-flex;align-items:center;gap:.5rem}
     .btn:hover{transform:translateY(-1px)}
     .btn-primary{background:var(--brand);color:#fff}
     .btn-outline{background:#fff;border:1px solid #e5e7eb}
-    .badge{padding:.25rem .55rem;border-radius:.5rem;background:#f1f5f9;font-size:.7rem}
+    .badge{padding:.22rem .55rem;border-radius:.5rem;background:#f1f5f9;font-size:.72rem}
+    .pill{padding:.35rem .7rem;border:1px solid #e5e7eb;border-radius:999px;font-size:.8rem}
+    .route-color-1{color:#0ea5e9}
+    .route-color-2{color:#22c55e}
+    .route-color-3{color:#f59e0b}
   </style>
 </head>
 <body class="bg-gradient-to-b from-sky-50 via-white to-white text-gray-800">
@@ -24,26 +28,26 @@
   <header class="sticky top-0 z-40">
     <div class="max-w-6xl mx-auto my-3 px-4 py-3 flex items-center justify-between bg-white/70 backdrop-blur rounded-xl border">
       <div class="font-extrabold text-lg flex items-center gap-2"><span class="text-2xl">🧭</span> TrendTrip</div>
-      <div class="text-sm text-gray-500">서울 · 구 단위 자동 코스</div>
+      <div class="text-sm text-gray-500">서울 · 구 단위 자동 코스(제안형)</div>
     </div>
   </header>
 
-  <section class="max-w-6xl mx-auto px-4 pt-6 grid md:grid-cols-3 gap-6">
-    <!-- 좌: 설정 -->
-    <div class="md:col-span-1 space-y-4">
+  <main class="max-w-6xl mx-auto px-4 pb-10 grid md:grid-cols-3 gap-6">
+    <!-- 좌측: 설정 -->
+    <section class="md:col-span-1 space-y-4">
       <div class="card">
         <div class="badge mb-2">여행 설정</div>
-        <label class="block text-sm mb-1">구 선택</label>
+        <label class="block text-sm mb-1">서울 구 선택</label>
         <select id="district" class="w-full border rounded-xl px-3 py-2">
-          <!-- 서울 주요 구: 중심좌표+검색반경(km) -->
-          <option value="seongdong" data-center="37.5639,127.0364" data-radius="3">성동구</option>
-          <option value="gwangjin"  data-center="37.5387,127.0822" data-radius="3">광진구</option>
-          <option value="jung"      data-center="37.5636,126.9976" data-radius="3">중구</option>
-          <option value="jongno"    data-center="37.5733,126.9793" data-radius="3">종로구</option>
-          <option value="yongsan"   data-center="37.5326,126.9905" data-radius="3">용산구</option>
+          <!-- 서울 시군구코드(확정): 종로(1) 중구(2) 용산(3) 성동(4) 광진(5) … -->
+          <option value="4"  data-center="37.5639,127.0364">성동구</option>
+          <option value="5"  data-center="37.5387,127.0822">광진구</option>
+          <option value="1"  data-center="37.5733,126.9793">종로구</option>
+          <option value="2"  data-center="37.5636,126.9976">중구</option>
+          <option value="3"  data-center="37.5326,126.9905">용산구</option>
         </select>
 
-        <div class="mt-3 grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-2 gap-2 mt-3">
           <div>
             <label class="block text-sm mb-1">여행 유형</label>
             <select id="tripMode" class="w-full border rounded-xl px-3 py-2">
@@ -54,11 +58,11 @@
           </div>
           <div>
             <label class="block text-sm mb-1">총 예산(₩)</label>
-            <input id="budget" type="number" class="w-full border rounded-xl px-3 py-2" value="200000" />
+            <input id="budget" type="number" class="w-full border rounded-xl px-3 py-2" value="220000" />
           </div>
         </div>
 
-        <div class="mt-3 grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-2 gap-2 mt-3">
           <div>
             <label class="block text-sm mb-1">날씨</label>
             <select id="weather" class="w-full border rounded-xl px-3 py-2">
@@ -77,59 +81,74 @@
           </div>
         </div>
 
-        <div class="mt-3">
-          <label class="text-sm flex items-center gap-2">
-            <input id="strictBudget" type="checkbox" class="scale-110"> 예산 엄수
-          </label>
-        </div>
+        <label class="text-sm flex items-center gap-2 mt-3">
+          <input id="strictBudget" type="checkbox" class="scale-110"> 예산 엄수
+        </label>
 
-        <div class="mt-4 flex gap-2">
-          <button id="btnLoadArea" class="btn btn-outline">데이터 불러오기</button>
-          <button id="btnGenerate" class="btn btn-primary flex-1">코스 생성</button>
+        <div class="flex gap-2 mt-4">
+          <button id="btnLoad" class="btn btn-outline">구 데이터 불러오기</button>
+          <button id="btnGenerate" class="btn btn-primary flex-1">코스 자동 생성</button>
         </div>
-        <div id="status" class="text-xs text-gray-500 mt-2"></div>
+        <div id="status" class="text-xs text-gray-500 mt-2">구 선택 후 [구 데이터 불러오기] → [코스 자동 생성]</div>
       </div>
 
       <div class="card">
-        <div class="badge mb-2">총액</div>
-        <div id="moneyBox" class="text-sm text-gray-700 space-y-1">
+        <div class="badge mb-2">총액 요약</div>
+        <div id="summary" class="space-y-1 text-sm text-gray-700">
           <div>액티비티: -</div>
           <div>숙박: -</div>
           <div class="font-semibold">합계: -</div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- 우: 지도+일정 -->
-    <div class="md:col-span-2 space-y-4">
+    <!-- 우측: 지도 + 제안 카드 -->
+    <section class="md:col-span-2 space-y-4">
       <div class="card">
-        <div class="font-bold mb-2">지도</div>
-        <div id="map" class="w-full h-[420px] rounded-xl"></div>
+        <div class="flex items-center justify-between">
+          <div class="font-bold">지도</div>
+          <div class="flex gap-2 text-xs">
+            <span class="pill route-color-1">제안 1</span>
+            <span class="pill route-color-2">제안 2</span>
+            <span class="pill route-color-3">제안 3</span>
+          </div>
+        </div>
+        <div id="map" class="w-full h-[420px] rounded-xl mt-2"></div>
       </div>
-      <div class="card">
-        <div class="font-bold mb-2">자동 생성 일정</div>
-        <ol id="itinerary" class="list-decimal list-inside text-sm text-gray-700"></ol>
-      </div>
-    </div>
-  </section>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" id="proposals"></div>
+    </section>
+  </main>
 
   <script>
-    // ===== 기본 상수/상태 =====
-    const TOURAPI_PROXY = "/api/tourapi"; // 같은 도메인에 배포했다고 가정
-    const CENTER = { lat: 37.5665, lng: 126.9780 };
+    // ===== 상수/상태 =====
+    const TOURAPI_PROXY = "/api/tourapi";
+    const SEOUL_AREACODE = 1;
 
-    let PLACES = []; // 관광지(액티비티)
-    let HOTELS = []; // 숙박(1박 비용)
+    let PLACES = []; // contentTypeId=12
+    let HOTELS = []; // contentTypeId=32
 
     // 지도
-    let map, markersLayer, routeLine;
+    let map, layers = { markers: null, route1:null, route2:null, route3:null };
     (function initMap(){
-      map = L.map('map').setView([CENTER.lat, CENTER.lng], 12);
+      map = L.map('map').setView([37.5665,126.9780], 12);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
-      markersLayer = L.layerGroup().addTo(map);
+      layers.markers = L.layerGroup().addTo(map);
     })();
 
-    // ===== 유틸 =====
+    // ===== 로딩(TourAPI: 구코드로 엄격 제한) =====
+    async function fetchArea(areaCode, sigunguCode, contentTypeId, numOfRows=120){
+      const u = new URL(TOURAPI_PROXY, location.origin);
+      u.searchParams.set("by","area");
+      u.searchParams.set("areaCode", String(areaCode));
+      u.searchParams.set("sigunguCode", String(sigunguCode));
+      u.searchParams.set("contentTypeId", String(contentTypeId));
+      u.searchParams.set("numOfRows", String(numOfRows));
+      const r = await fetch(u.toString());
+      const data = await r.json();
+      return data?.response?.body?.items?.item || [];
+    }
+
     function deriveThemesFromTitle(t=''){
       const tags = [];
       if (/공원|숲|산책|천|호수|섬|오름|둘레길|성곽길/.test(t)) tags.push('산책','힐링');
@@ -138,8 +157,10 @@
       if (!tags.length) tags.push('트렌드');
       return Array.from(new Set(tags));
     }
+
+    // 비용 추정(단순 휴리스틱)
     function estimatePlaceCost(title="", type="outdoor", ctid=""){
-      const t = title || "";
+      const t = title||"";
       if (ctid==="14" || /박물관|미술관|전시|기념관/.test(t)) return 5000 + Math.floor(Math.random()*7000);
       if (ctid==="28" || /체험|테마|VR|AR|카트|서핑|아쿠아리움|케이블카|전망대/.test(t)) return 12000 + Math.floor(Math.random()*14000);
       if (/타워|전망|N타워|서울타워/.test(t)) return 15000 + Math.floor(Math.random()*8000);
@@ -149,288 +170,349 @@
       return type==='indoor' ? 6000 + Math.floor(Math.random()*9000) : (Math.random()<0.7?0:1000+Math.floor(Math.random()*3000));
     }
     function estimateHotelNight(title=""){
-      const t = title || "";
+      const t = title||"";
       if (/리조트|스파|프리미어|수영장|콘도/.test(t)) return 120000 + Math.floor(Math.random()*80000);
-      if (/호텔|관광호텔|해운대|시티|마이스/.test(t)) return 80000 + Math.floor(Math.random()*60000);
+      if (/호텔|관광호텔|시티|마이스/.test(t)) return 80000 + Math.floor(Math.random()*60000);
       if (/한옥|스테이|펜션|게스트|민박|호스텔/.test(t)) return 40000 + Math.floor(Math.random()*40000);
       return 70000 + Math.floor(Math.random()*60000);
-    }
-
-    function scorePlace(p, weather){
-      const themeHit = 6; // 감정 없이도 기본 가중
-      const fomo = p.fomo/10;
-      const weatherBoost = (weather==='rainy' && p.type==='indoor') ? 6 : (weather==='sunny' && p.type==='outdoor') ? 4 : 0;
-      const soft = (p.cost||0) > 0 ? - ((p.cost||0) >= 18000 ? 3 : ((p.cost||0) >= 10000 ? 1 : 0)) : 1;
-      return themeHit + weatherBoost + fomo + soft;
-    }
-    function scoreHotel(h){ return (h.fomo/10) + (h.star||4); }
-
-    // ===== 로딩 =====
-    async function fetchByLocation(center, radiusMeters, contentTypeId="12", num=100){
-      const u = new URL(TOURAPI_PROXY, location.origin);
-      u.searchParams.set("by","location");
-      u.searchParams.set("mapX", center.lng);
-      u.searchParams.set("mapY", center.lat);
-      u.searchParams.set("radius", String(radiusMeters));
-      u.searchParams.set("contentTypeId", contentTypeId);
-      u.searchParams.set("numOfRows", String(num));
-      const r = await fetch(u.toString());
-      const data = await r.json();
-      return data?.response?.body?.items?.item || [];
     }
 
     function mapItemsToPlaces(items){
       return (items||[]).map((it,idx)=>{
         const typeGuess = (String(it.contenttypeid)==='14' || /박물관|미술관|전시/.test(it.title)) ? 'indoor' : 'outdoor';
-        const themes = deriveThemesFromTitle(it.title||"");
-        const cost = estimatePlaceCost(it.title||"", typeGuess, String(it.contenttypeid||""));
         return {
-          id: idx+1, name: it.title,
+          id: idx+1,
+          name: it.title,
           lat: Number(it.mapy), lng: Number(it.mapx),
-          type: typeGuess, cost, themes, fomo: 70 + (idx%25)
+          type: typeGuess,
+          cost: estimatePlaceCost(it.title||"", typeGuess, String(it.contenttypeid||"")),
+          themes: deriveThemesFromTitle(it.title||""),
+          fomo: 70 + (idx%25)
         };
       }).filter(p=>isFinite(p.lat)&&isFinite(p.lng));
     }
     function mapItemsToHotels(items){
-      return (items||[]).map((it,idx)=>{
-        const nightCost = estimateHotelNight(it.title||"");
-        return {
-          id: 1000+idx+1, name: it.title, type:"hotel",
-          lat: Number(it.mapy), lng: Number(it.mapx),
-          nightCost, star: 4.0 + (idx%10)/10, fomo: 70 + (idx%25)
-        };
-      }).filter(h=>isFinite(h.lat)&&isFinite(h.lng));
+      return (items||[]).map((it,idx)=>({
+        id: 1000+idx+1,
+        name: it.title, type:"hotel",
+        lat: Number(it.mapy), lng: Number(it.mapx),
+        nightCost: estimateHotelNight(it.title||""),
+        star: 4.0 + (idx%10)/10,
+        fomo: 70 + (idx%25)
+      })).filter(h=>isFinite(h.lat)&&isFinite(h.lng));
     }
 
-    async function loadDistrict(){
-      const opt = document.getElementById('district').selectedOptions[0];
-      const [lat,lng] = opt.dataset.center.split(',').map(Number);
-      const radiusKm = Number(opt.dataset.radius||3);
-      const center = {lat, lng};
-      document.getElementById('status').textContent = '데이터 로딩…';
-      try{
-        const [placeRaw, hotelRaw] = await Promise.all([
-          fetchByLocation({lat,lng}, radiusKm*1000, "12", 120),
-          fetchByLocation({lat,lng}, radiusKm*1000, "32", 120)
-        ]);
-        PLACES = mapItemsToPlaces(placeRaw);
-        HOTELS = mapItemsToHotels(hotelRaw);
-        setMapCenter(lat,lng,12);
-        document.getElementById('status').textContent = `장소 ${PLACES.length} · 숙소 ${HOTELS.length} 로드`;
-      }catch(e){
-        console.error(e);
-        document.getElementById('status').textContent = '로딩 실패(목업으로 대체)';
-        // 간단 목업
-        PLACES = mapItemsToPlaces([]);
-        HOTELS  = mapItemsToHotels([]);
+    // 점수/거리 유틸
+    function scorePlace(p, weather){
+      const fomo = p.fomo/10;
+      const weatherBoost = (weather==='rainy' && p.type==='indoor') ? 6 : (weather==='sunny' && p.type==='outdoor') ? 4 : 0;
+      const priceSoft = (p.cost||0) > 0 ? - ((p.cost||0) >= 18000 ? 3 : ((p.cost||0) >= 10000 ? 1 : 0)) : 1;
+      return fomo + weatherBoost + priceSoft + 6; // 기본 가중
+    }
+    function scoreHotel(h){ return (h.fomo/10) + (h.star||4); }
+
+    function haversine(a,b){
+      const R=6371; const toRad=d=>d*Math.PI/180;
+      const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
+      const s1=Math.sin(dLat/2), s2=Math.sin(dLng/2);
+      const c=2*Math.asin(Math.sqrt(s1*s1+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*s2*s2));
+      return R*c; // km
+    }
+
+    function nearestNeighborOrder(points, start){
+      if(points.length<=1) return points.slice();
+      const used=new Set(); let route=[]; let cur={...start};
+      for(let i=0;i<points.length;i++){
+        let best=null, bestD=1e9, idx=-1;
+        for(let j=0;j<points.length;j++){
+          if(used.has(j)) continue;
+          const d=haversine(cur, points[j]);
+          if(d<bestD){ bestD=d; best=points[j]; idx=j; }
+        }
+        used.add(idx); route.push(best); cur=best;
       }
+      return route;
     }
 
-    function setMapCenter(lat, lng, zoom=12){ map.setView([lat, lng], zoom); }
-
-    // ===== 자동 코스 생성 =====
-    function tripMeta(mode){
+    // 제안 생성
+    function buildTripMeta(mode){
       const nights = mode==="1n2d"?1 : mode==="2n3d"?2 : 0;
       const days = nights>0 ? nights+1 : 1;
-      // 6h 당일: 3~4곳 / 1박2일: 7~8곳 / 2박3일: 10~12곳 정도
-      const placesPerDay = (nights===0)?3 : (nights===1)?4 : 4;
-      const maxPlaces = days * placesPerDay;
-      // 시작/숙박 시간표 (간단 고정)
-      return { nights, days, maxPlaces };
+      const perDay = nights===0 ? 3 : 4; // 한 날 3~4곳
+      const maxPlaces = days * perDay;
+      return { nights, days, perDay, maxPlaces };
     }
 
-    function pickActivities(weather, inout, actBudget, maxPlaces, strict){
-      const perItemCeil = maxPlaces>0 ? Math.max(3000, Math.floor((actBudget*0.7)/maxPlaces*1.2)) : Infinity;
-      const pool = PLACES
-        .filter(p => inout==='any' ? true : p.type===inout)
-        .map(p => ({...p, score: scorePlace(p, weather)}))
-        .sort((a,b)=> b.score-a.score)
+    function selectActivities(pool, actBudget, maxPlaces, strict, bias){
+      // bias: 'view' | 'history' | 'trend' 등 테마 가중치
+      const tagBoost = p=>{
+        if(bias==='view' && p.themes.includes('뷰')) return 4;
+        if(bias==='history' && (p.themes.includes('역사')||p.themes.includes('사색'))) return 4;
+        if(bias==='walk' && p.themes.includes('산책')) return 4;
+        if(bias==='trend' && p.themes.includes('트렌드')) return 4;
+        return 0;
+      };
+
+      const sorted = pool
+        .map(p=>({...p, score2: p.score + tagBoost(p)}))
+        .sort((a,b)=> b.score2 - a.score2)
         .slice(0,60);
 
-      // 그리디(점수/비용) + 무료우선
-      let filtered = pool.filter(p => (p.cost||0) <= perItemCeil);
-      if(filtered.length < Math.max(6, maxPlaces*2)) filtered = pool; // 지나치게 좁으면 완화
+      const perItemCeil = maxPlaces>0 ? Math.max(3000, Math.floor((actBudget*0.7)/maxPlaces*1.2)) : Infinity;
+      let filtered = sorted.filter(p => (p.cost||0) <= perItemCeil);
+      if(filtered.length < Math.max(6, maxPlaces*2)) filtered = sorted;
 
-      const freeFirst = filtered.filter(p => (p.cost||0)===0).slice(0, Math.min(3, maxPlaces));
+      const freeFirst = filtered.filter(p => (p.cost||0)===0).slice(0, Math.min(3,maxPlaces));
       let remain = Math.floor(actBudget*0.7) - freeFirst.reduce((s,p)=>s+(p.cost||0),0);
       let slots = maxPlaces - freeFirst.length;
 
       const candidates = filtered
         .filter(p=>!freeFirst.find(f=>f.id===p.id))
         .sort((a,b)=>{
-          const ra = (a.cost||0)>0 ? (a.score/a.cost) : a.score*10;
-          const rb = (b.cost||0)>0 ? (b.score/b.cost) : b.score*10;
+          const ra = (a.cost||0)>0 ? (a.score2/a.cost) : a.score2*10;
+          const rb = (b.cost||0)>0 ? (b.score2/b.cost) : b.score2*10;
           return rb-ra;
         });
 
       const chosen=[...freeFirst];
       for(const p of candidates){
         if(slots<=0) break;
-        const c = p.cost||0;
+        const c=p.cost||0;
         if(c<=remain){ chosen.push(p); remain-=c; slots--; }
         else if(!strict && chosen.length===0 && c<=actBudget*0.8){ chosen.push(p); break; }
       }
-      // 보충
-      if(chosen.length < maxPlaces){
-        const cheap = candidates.filter(p=>!chosen.find(x=>x.id===p.id)).sort((a,b)=>(a.cost||0)-(b.cost||0));
+      // 저가 보충
+      if(chosen.length<maxPlaces){
+        const cheap=candidates.filter(p=>!chosen.find(x=>x.id===p.id)).sort((a,b)=>(a.cost||0)-(b.cost||0));
         for(const p of cheap){ if(chosen.length>=maxPlaces) break; const c=p.cost||0; if(c<=remain){ chosen.push(p); remain-=c; } }
       }
       // 무료로 채우기
-      if(chosen.length < maxPlaces){
-        const moreFree = filtered.filter(p=>(p.cost||0)===0 && !chosen.find(x=>x.id===p.id));
+      if(chosen.length<maxPlaces){
+        const moreFree=filtered.filter(p=>(p.cost||0)===0 && !chosen.find(x=>x.id===p.id));
         for(const p of moreFree){ if(chosen.length>=maxPlaces) break; chosen.push(p); }
       }
       return chosen.slice(0,maxPlaces);
     }
 
-    function pickHotels(nights, hotelBudget, strict){
+    function selectHotels(pool, nights, hotelBudget, strict){
       if(nights<=0) return [];
-      const scored = HOTELS.map(h=> ({...h, score: scoreHotel(h) + (h.nightCost>0 ? 30000/(h.nightCost) : 0)}))
-                           .sort((a,b)=> b.score-a.score);
-      const perNight = Math.max(30000, Math.floor(hotelBudget / nights));
-      let pool = scored.filter(h => (h.nightCost||0) <= perNight*1.15);
-      if(pool.length===0) pool = scored.slice(-10).sort((a,b)=>(a.nightCost||0)-(b.nightCost||0)); // 제일 싼 축에서
-
+      const perNight = Math.max(30000, Math.floor(hotelBudget/nights));
+      let candidates = pool.filter(h => (h.nightCost||0) <= perNight*1.15);
+      if(candidates.length===0) candidates = pool.slice().sort((a,b)=>(a.nightCost||0)-(b.nightCost||0)).slice(0,12);
+      candidates.forEach(h=> h.score2 = scoreHotel(h) + (h.nightCost>0 ? 30000/(h.nightCost):0));
+      const sorted = candidates.sort((a,b)=> b.score2 - a.score2);
       const chosen = [];
       let remain = hotelBudget;
-      for(const h of pool){
+      for(const h of sorted){
         if(chosen.length>=nights) break;
         const c=h.nightCost||0;
-        if(!strict || c<=remain){ chosen.push(h); remain -= c; }
+        if(!strict || c<=remain){ chosen.push(h); remain-=c; }
       }
-      // 부족하면 더 싼 것으로 교체 시도
-      if(strict){
-        let total = chosen.reduce((s,h)=>s+(h.nightCost||0),0);
-        if(total>hotelBudget){
-          const cheap = HOTELS.slice().sort((a,b)=>(a.nightCost||0)-(b.nightCost||0));
-          chosen.length = 0;
-          for(let i=0;i<nights;i++){
-            const target = Math.max(20000, Math.floor((hotelBudget - chosen.reduce((s,h)=>s+(h.nightCost||0),0)) / (nights-i)));
-            const cand = cheap.find(h => (h.nightCost||0) <= target) || cheap[0];
-            chosen.push(cand);
-          }
-        }
+      // 엄수 실패 시 더 싼 숙소로 채우기
+      if(strict && chosen.length<nights){
+        const cheap = pool.slice().sort((a,b)=>(a.nightCost||0)-(b.nightCost||0));
+        while(chosen.length<nights) chosen.push(cheap[chosen.length] || cheap[0]);
       }
-      return chosen.slice(0,nights);
+      return chosen.slice(0, nights);
     }
 
-    function buildSchedule(places, hotels, mode){
-      // 간단 타임라인: 6h(10:00~16:00, 90분/곳), 1n2d/2n3d는 10:00~18:00 (점심 포함)
-      const startTime = 10*60; // minutes
-      const perSlot = (mode==="6h")? 90 : 100;
-      const lunchTime = 13*60;
+    function orderRouteByNN(places, center){
+      if(places.length<=1) return places;
+      return nearestNeighborOrder(places, center);
+    }
 
-      const { nights, days } = tripMeta(mode);
-      const perDay = Math.ceil(places.length / days);
-      const blocks = [];
-      let idx=0;
+    function buildTimeline(orderedPlaces, hotels, mode){
+      const {nights, days} = buildTripMeta(mode);
+      const start = 10*60, perSlot = (mode==="6h"? 90: 100), lunch=13*60;
+      const perDay = Math.ceil(orderedPlaces.length/days);
+      const blocks=[]; let idx=0;
 
       for(let d=0; d<days; d++){
-        let t = startTime;
-        blocks.push({ type:'day', label:`Day ${d+1}` });
-        for(let k=0;k<perDay;k++){
-          const p = places[idx++];
-          if(!p) break;
-          // 점심 슬롯
-          if(t < lunchTime && t+perSlot >= lunchTime){
-            blocks.push({ type:'meal', time: minutesToHHMM(lunchTime), label:'점심' });
-            t = lunchTime + 60;
-          }
-          blocks.push({ type:'place', time: minutesToHHMM(t), name:p.name, cost:p.cost, lat:p.lat, lng:p.lng });
+        let t=start; blocks.push({ type:'day', label:`Day ${d+1}` });
+        for(let k=0; k<perDay; k++){
+          const p = orderedPlaces[idx++]; if(!p) break;
+          if(t < lunch && t+perSlot >= lunch){ blocks.push({ type:'meal', time: toHHMM(lunch), label:'점심' }); t=lunch+60; }
+          blocks.push({ type:'place', time: toHHMM(t), name:p.name, cost:p.cost, lat:p.lat, lng:p.lng });
           t += perSlot;
         }
-        // 해당 밤의 숙소
         if(d < nights && hotels[d]){
-          blocks.push({ type:'hotel', time: '체크인(18:00~)', name: hotels[d].name, cost: hotels[d].nightCost, lat: hotels[d].lat, lng: hotels[d].lng });
+          const h = hotels[d];
+          blocks.push({ type:'hotel', time:'체크인(18:00~)', name:h.name, cost:h.nightCost, lat:h.lat, lng:h.lng });
         }
       }
       return blocks;
     }
-    function minutesToHHMM(m){ const h=Math.floor(m/60), mm=String(m%60).padStart(2,'0'); return `${h}:${mm}`; }
+    function toHHMM(m){ const h=Math.floor(m/60), mm=String(m%60).padStart(2,'0'); return `${h}:${mm}` }
 
-    // ===== 렌더링 =====
-    function renderItinerary(blocks){
-      const it = document.getElementById('itinerary');
-      it.innerHTML = '';
-      markersLayer.clearLayers();
-      if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
+    // ===== 제안 생성 메인 =====
+    function generateProposals({center, mode, budget, weather, inout, strict}){
+      const { maxPlaces, nights } = buildTripMeta(mode);
+      // 예산 분배(숙박 60% / 액티비티 40%)
+      const hotelBudget = nights>0 ? Math.floor(budget*0.6) : 0;
+      const actBudget = budget - hotelBudget;
 
-      const routePts = [];
-      blocks.forEach(b=>{
-        const li = document.createElement('li');
-        if(b.type==='day'){
-          li.className = 'mt-2 font-semibold';
-          li.textContent = b.label;
-        }else if(b.type==='meal'){
-          li.className = 'ml-4 text-gray-600';
-          li.textContent = `${b.time} • ${b.label}`;
-        }else if(b.type==='place'){
-          li.className = 'ml-4';
-          li.textContent = `${b.time} • ${b.name} (~${(b.cost||0).toLocaleString()}원)`;
-          routePts.push([b.lat,b.lng]);
-          markersLayer.addLayer(L.marker([b.lat,b.lng]).bindPopup(b.name));
-        }else if(b.type==='hotel'){
-          li.className = 'ml-4';
-          li.textContent = `🏨 ${b.time} • 숙소: ${b.name} (1박 ~${(b.cost||0).toLocaleString()}원)`;
-          routePts.push([b.lat,b.lng]);
-          markersLayer.addLayer(L.marker([b.lat,b.lng]).bindPopup("🏨 "+b.name));
-        }
-        it.appendChild(li);
-      });
+      const placePool = PLACES
+        .filter(p => inout==='any' ? true : p.type===inout)
+        .map(p=>({...p, score: scorePlace(p, weather)}));
 
-      if(routePts.length>=2){
-        routeLine = L.polyline(routePts, {weight:5, opacity:.9, color:'#0ea5e9'}).addTo(map);
-        map.fitBounds(routeLine.getBounds(), {padding:[20,20]});
-      }else if(routePts[0]){
-        map.setView(routePts[0], 13);
+      const hotelPool = HOTELS.map(h=>({...h, score: scoreHotel(h)}));
+
+      const biases = nights>0
+        ? ['trend','view','history']     // 박 있으면 테마 다양화
+        : ['walk','trend','view'];       // 당일은 산책/트렌드/뷰 위주
+
+      const proposals = [];
+      for(let i=0;i<3;i++){
+        const bias = biases[i];
+        const acts = selectActivities(placePool, actBudget, maxPlaces, strict, bias);
+        const hotels = selectHotels(hotelPool, nights, hotelBudget, strict);
+
+        const ordered = orderRouteByNN(acts, center);
+        const blocks = buildTimeline(ordered, hotels, mode);
+        const actTotal = acts.reduce((s,p)=>s+(p.cost||0),0);
+        const hotelTotal = hotels.reduce((s,h)=>s+(h.nightCost||0),0);
+        proposals.push({
+          id: i+1, bias, blocks,
+          places: ordered, hotels,
+          money: { actTotal, hotelTotal, total: actTotal+hotelTotal }
+        });
       }
+      return proposals;
     }
 
-    function renderMoney(actTotal, hotelTotal){
-      const m = document.getElementById('moneyBox');
-      m.innerHTML = `
-        <div>액티비티: ~${actTotal.toLocaleString()}원</div>
-        <div>숙박: ~${hotelTotal.toLocaleString()}원</div>
-        <div class="font-semibold">합계: ~${(actTotal+hotelTotal).toLocaleString()}원</div>
+    // ===== 렌더링 =====
+    function clearRoutes(){
+      ['route1','route2','route3'].forEach(k=>{ if(layers[k]){ map.removeLayer(layers[k]); layers[k]=null; }});
+      layers.markers.clearLayers();
+    }
+    function drawProposalOnMap(prop){
+      clearRoutes();
+      const latlngs=[];
+      prop.blocks.forEach(b=>{
+        if(b.type==='place' || b.type==='hotel'){
+          latlngs.push([b.lat,b.lng]);
+          layers.markers.addLayer(L.marker([b.lat,b.lng]).bindPopup((b.type==='hotel'?'🏨 ':'')+b.name));
+        }
+      });
+      if(latlngs.length>=2){
+        layers['route'+prop.id] = L.polyline(latlngs, {
+          weight:5, opacity:.9,
+          color: prop.id===1 ? '#0ea5e9' : prop.id===2 ? '#22c55e' : '#f59e0b'
+        }).addTo(map);
+        map.fitBounds(layers['route'+prop.id].getBounds(), {padding:[20,20]});
+      }else if(latlngs[0]){ map.setView(latlngs[0], 13); }
+    }
+
+    function renderProposals(props){
+      const box = document.getElementById('proposals');
+      box.innerHTML = '';
+      props.forEach(p=>{
+        const wrap = document.createElement('div');
+        wrap.className = 'card';
+        const title = p.id===1?'제안 1':p.id===2?'제안 2':'제안 3';
+        const colorClass = p.id===1?'route-color-1':p.id===2?'route-color-2':'route-color-3';
+
+        const list = p.blocks.map(b=>{
+          if(b.type==='day') return `<li class="mt-2 font-semibold">${b.label}</li>`;
+          if(b.type==='meal') return `<li class="ml-4 text-gray-600">${b.time} • ${b.label}</li>`;
+          if(b.type==='place') return `<li class="ml-4">${b.time} • ${b.name} (~${(b.cost||0).toLocaleString()}원)</li>`;
+          if(b.type==='hotel') return `<li class="ml-4">🏨 ${b.time} • ${b.name} (1박 ~${(b.cost||0).toLocaleString()}원)</li>`;
+          return '';
+        }).join('');
+
+        wrap.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <div class="font-bold ${colorClass}">${title}</div>
+            <span class="badge">${p.bias}</span>
+          </div>
+          <div class="text-sm text-gray-600 mb-2">총액 ~${p.money.total.toLocaleString()}원 (액티비티 ${p.money.actTotal.toLocaleString()} + 숙박 ${p.money.hotelTotal.toLocaleString()})</div>
+          <ol class="text-sm text-gray-700">${list}</ol>
+          <div class="mt-3 flex gap-2">
+            <button class="btn btn-outline" data-prop="${p.id}" data-action="show">지도에 보기</button>
+            <button class="btn btn-primary" data-prop="${p.id}" data-action="adopt">이 코스 채택</button>
+          </div>
+        `;
+        box.appendChild(wrap);
+      });
+
+      // 버튼 이벤트
+      box.querySelectorAll('button[data-action="show"]').forEach(btn=>{
+        btn.onclick = ()=> {
+          const id = Number(btn.dataset.prop);
+          const prop = currentProposals.find(x=>x.id===id);
+          if(prop) drawProposalOnMap(prop);
+          updateSummary(prop.money.actTotal, prop.money.hotelTotal);
+        };
+      });
+      box.querySelectorAll('button[data-action="adopt"]').forEach(btn=>{
+        btn.onclick = ()=> {
+          const id = Number(btn.dataset.prop);
+          const prop = currentProposals.find(x=>x.id===id);
+          if(prop){
+            drawProposalOnMap(prop);
+            updateSummary(prop.money.actTotal, prop.money.hotelTotal);
+            alert(`${id}번 코스를 채택했습니다!`);
+          }
+        };
+      });
+    }
+
+    function updateSummary(act, hotel){
+      const el = document.getElementById('summary');
+      el.innerHTML = `
+        <div>액티비티: ~${(act||0).toLocaleString()}원</div>
+        <div>숙박: ~${(hotel||0).toLocaleString()}원</div>
+        <div class="font-semibold">합계: ~${((act||0)+(hotel||0)).toLocaleString()}원</div>
       `;
     }
 
     // ===== 이벤트 =====
-    document.getElementById('btnLoadArea').onclick = loadDistrict;
+    let currentCenter = { lat:37.5665, lng:126.9780 };
+    let currentProposals = [];
 
-    document.getElementById('btnGenerate').onclick = async ()=>{
-      if(PLACES.length===0 || HOTELS.length===0){
-        await loadDistrict(); // 데이터 없으면 먼저 로드
+    document.getElementById('btnLoad').onclick = async ()=>{
+      const opt = document.getElementById('district').selectedOptions[0];
+      const sigungu = Number(opt.value);
+      const [lat,lng] = opt.dataset.center.split(',').map(Number);
+      currentCenter = { lat, lng };
+      document.getElementById('status').textContent = '해당 구의 장소/숙소 로딩 중…';
+
+      try{
+        const [placeRaw, hotelRaw] = await Promise.all([
+          fetchArea(SEOUL_AREACODE, sigungu, 12, 200), // 관광지
+          fetchArea(SEOUL_AREACODE, sigungu, 32, 200)  // 숙박
+        ]);
+        PLACES = mapItemsToPlaces(placeRaw);
+        HOTELS = mapItemsToHotels(hotelRaw);
+        document.getElementById('status').textContent = `로드 완료: 장소 ${PLACES.length} · 숙소 ${HOTELS.length}`;
+        map.setView([lat,lng], 13);
+        layers.markers.clearLayers();
+      }catch(e){
+        console.error(e);
+        document.getElementById('status').textContent = '로드 실패(키/쿼터/파라미터 확인)';
       }
-      const mode = document.getElementById('tripMode').value;
-      const budget = Number(document.getElementById('budget').value||0);
-      const weather = document.getElementById('weather').value;
-      const inout = document.getElementById('inout').value;
-      const strict = !!document.getElementById('strictBudget').checked;
-
-      const { nights, maxPlaces } = tripMeta(mode);
-      const hotelBudget = nights>0 ? Math.floor(budget*0.6) : 0;
-      const actBudget = budget - hotelBudget;
-
-      // 선택
-      const activities = pickActivities(weather, inout, actBudget, maxPlaces, strict);
-      const hotels = pickHotels(nights, hotelBudget, strict);
-
-      // 스케줄 조립
-      const blocks = buildSchedule(activities, hotels, mode);
-      renderItinerary(blocks);
-
-      // 비용 합산
-      const actTotal = activities.reduce((s,p)=>s+(p.cost||0),0);
-      const hotelTotal = hotels.reduce((s,h)=>s+(h.nightCost||0),0);
-      renderMoney(actTotal, hotelTotal);
-
-      document.getElementById('status').textContent =
-        `코스 생성 완료 · 액티비티 ${activities.length} · 숙소 ${hotels.length} · 예산 ${budget.toLocaleString()}원 (숙박 ${hotelBudget.toLocaleString()} / 액티비티 ${actBudget.toLocaleString()})`;
     };
 
-    // 초기 상태 문구
-    document.getElementById('status').textContent = '구 선택 후 [데이터 불러오기] → [코스 생성]';
+    document.getElementById('btnGenerate').onclick = ()=>{
+      if(PLACES.length===0){ alert('먼저 [구 데이터 불러오기]를 눌러주세요.'); return; }
+      const mode   = document.getElementById('tripMode').value;
+      const budget = Number(document.getElementById('budget').value||0);
+      const weather= document.getElementById('weather').value;
+      const inout  = document.getElementById('inout').value;
+      const strict = !!document.getElementById('strictBudget').checked;
+
+      currentProposals = generateProposals({
+        center: currentCenter, mode, budget, weather, inout, strict
+      });
+      renderProposals(currentProposals);
+
+      // 기본으로 제안 1 지도 표시
+      drawProposalOnMap(currentProposals[0]);
+      updateSummary(currentProposals[0].money.actTotal, currentProposals[0].money.hotelTotal);
+
+      const t = currentProposals[0].money.total.toLocaleString();
+      document.getElementById('status').textContent = `코스 자동 생성 완료 · 제안 3종 · 1안 총액 ~${t}원`;
+    };
   </script>
 </body>
 </html>
