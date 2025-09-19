@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TrendTrip | 서울 구 단위 자동 코스 (예산 최적화 • Diversified v2)</title>
-  <meta name="description" content="서울 구 단위로 숙소까지 포함된 자동 여행 코스를 2~3가지 제안하며, 각 제안은 테마·예산배분·실내/실외·타임라인이 서로 다르게 구성됩니다." />
+  <title>TrendTrip | 서울 구 단위 자동 코스 (감정·예산 최적화)</title>
+  <meta name="description" content="감정·트렌드·예산·날씨를 반영해 서울 '구' 단위로 2~3개의 자동 여행 코스(숙소 포함)를 제안합니다. 큰 예산일수록 고급으로 업그레이드합니다." />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -18,6 +18,8 @@
     .btn-outline{background:#fff;border:1px solid #e5e7eb}
     .badge{padding:.22rem .55rem;border-radius:.5rem;background:#f1f5f9;font-size:.72rem}
     .pill{padding:.35rem .7rem;border:1px solid #e5e7eb;border-radius:999px;font-size:.8rem}
+    .chip{border:1px solid #e5e7eb;border-radius:999px;padding:.35rem .7rem;font-size:.85rem;cursor:pointer;user-select:none}
+    .chip.active{background:#0ea5e910;border-color:#0ea5e9;color:#0369a1}
     .route-color-1{color:#0ea5e9}
     .route-color-2{color:#22c55e}
     .route-color-3{color:#f59e0b}
@@ -28,7 +30,7 @@
   <header class="sticky top-0 z-40">
     <div class="max-w-6xl mx-auto my-3 px-4 py-3 flex items-center justify-between bg-white/70 backdrop-blur rounded-xl border">
       <div class="font-extrabold text-lg flex items-center gap-2"><span class="text-2xl">🧭</span> TrendTrip</div>
-      <div class="text-sm text-gray-500">서울 · 구 단위 자동 코스(예산 최적화 • Diversified v2)</div>
+      <div class="text-sm text-gray-500">서울 · 구 단위 자동 코스(감정·예산 최적화)</div>
     </div>
   </header>
 
@@ -37,6 +39,20 @@
     <section class="md:col-span-1 space-y-4">
       <div class="card">
         <div class="badge mb-2">여행 설정</div>
+
+        <!-- 감정 입력 -->
+        <label class="block text-sm mb-1">현재 감정(선택 또는 직접 입력)</label>
+        <div id="emotionChips" class="flex flex-wrap gap-2 mb-2">
+          <span data-em="힐링" class="chip">힐링</span>
+          <span data-em="설렘" class="chip">설렘</span>
+          <span data-em="위로" class="chip">위로</span>
+          <span data-em="모험" class="chip">모험</span>
+          <span data-em="사색" class="chip">사색</span>
+          <span data-em="활력" class="chip">활력</span>
+        </div>
+        <input id="emotionInput" class="w-full border rounded-xl px-3 py-2 mb-2" placeholder="예: 힐링이 필요해, 야경 보고 싶어, 실내에서 쉬고 싶어…" />
+        <div class="text-xs text-gray-500 mb-3" id="emotionStatus">감정을 선택/입력하면 추천 편향과 코스 구성이 달라집니다.</div>
+
         <label class="block text-sm mb-1">서울 구 선택</label>
         <select id="district" class="w-full border rounded-xl px-3 py-2">
           <option value="4"  data-center="37.5639,127.0364">성동구</option>
@@ -99,6 +115,17 @@
           <div class="font-semibold">합계: -</div>
         </div>
       </div>
+
+      <div class="card">
+        <div class="badge mb-2">기능 요약</div>
+        <ol class="list-decimal pl-5 text-sm text-gray-700 space-y-1">
+          <li>감정 기반 맞춤 추천: 감정을 키워드로 변환해 테마 매핑 후 리스트 생성</li>
+          <li>트렌드 기반 장소 추천(FOMO 점수): 인기·검색량 가중</li>
+          <li>예산 기반 최적 경로: 조건 최적화로 루트·지도 생성</li>
+          <li>날씨 기반 실내/실외 추천: 기상 조건 반영</li>
+          <li>피드백·저장(추가 예정): 코스 저장 및 후기 작성</li>
+        </ol>
+      </div>
     </section>
 
     <!-- 우측: 지도 + 제안 카드 -->
@@ -120,17 +147,10 @@
   </main>
 
   <script>
-    /* ===============================
-       Diversified v2 핵심 아이디어
-       - 제안별 차등화: 편향/예산배분/실내외/유료비중/타임라인/프리미엄옵션
-       - 중복 제한: 제안 간 장소 중복 최소화(제한치 초과 시 후보 교체)
-       - 시드난수: 제안마다 섞기/선택이 다르게
-    =============================== */
-
-    // ===== 상수/상태 =====
+    /* =============== 설정/상태 =============== */
     const TOURAPI_PROXY = "/api/tourapi";
     const SEOUL_AREACODE = 1;
-    const TARGET_UTIL = 0.95; // 예산 사용 목표치(95% 전후)
+    const TARGET_UTIL = 0.95;
 
     let PLACES = []; // 12+14+28
     let HOTELS = []; // 32
@@ -143,14 +163,70 @@
       layers.markers = L.layerGroup().addTo(map);
     })();
 
-    // ===== 유틸: 시드 난수/셔플/유니크/자카드/클램프 =====
-    function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-    function seededShuffle(arr, rand){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-    function uniqueBy(arr, key){ const seen=new Set(); return arr.filter(x=>{ const k=key(x); if(seen.has(k)) return false; seen.add(k); return true; }); }
-    function jaccard(aIds, bIds){ const A=new Set(aIds), B=new Set(bIds); let inter=0; for(const x of A){ if(B.has(x)) inter++; } const uni = A.size + B.size - inter; return uni? inter/uni : 0; }
-    const clamp = (x,lo,hi)=> Math.max(lo, Math.min(hi, x));
+    /* =============== 감정 매핑 =============== */
+    // 감정 → 테마/타입/유료성/프리미엄/시작-점심 시각 선호
+    function emotionProfile(textRaw){
+      const t = (textRaw||"").trim();
+      const e = t || selectedEmotion || "힐링";
+      const key = /설렘|두근|야경|뷰/.test(e) ? "설렘"
+               : /위로|휴식|편안|실내|카페|잔잔/.test(e) ? "위로"
+               : /모험|액티브|체험|레포츠|스릴/.test(e) ? "모험"
+               : /사색|고요|역사|전시|미술|독서/.test(e) ? "사색"
+               : /활력|에너지|파워|힙|트렌드/.test(e) ? "활력"
+               : "힐링";
 
-    // ===== TourAPI: 구코드 기반 로딩 =====
+      // 기본값
+      const base = {
+        tagBoost: { 산책:2, 힐링:2, 뷰:0, 설렘:0, 역사:0, 사색:0, 트렌드:1 },
+        inoutHint: "any",
+        wantPaidRatio: 0.45,
+        premiumInclination: 0.2,
+        startMin: 10*60,
+        lunchMin: 13*60
+      };
+
+      const map = {
+        "힐링": {
+          tagBoost:{ 산책:4, 힐링:4, 뷰:1, 설렘:0, 역사:1, 사색:1, 트렌드:0 },
+          inoutHint:"outdoor", wantPaidRatio:0.35, premiumInclination:0.15, startMin:10*60, lunchMin:13*60
+        },
+        "설렘": {
+          tagBoost:{ 뷰:4, 설렬:4, 산책:1, 힐링:1, 트렌드:2 }, inoutHint:"outdoor",
+          wantPaidRatio:0.5, premiumInclination:0.3, startMin:11*60, lunchMin:12*60+30
+        },
+        "위로": {
+          tagBoost:{ 사색:3, 역사:1, 힐링:3, 산책:1, 트렌드:0 }, inoutHint:"indoor",
+          wantPaidRatio:0.3, premiumInclination:0.2, startMin:12*60, lunchMin:14*60
+        },
+        "모험": {
+          tagBoost:{ 트렌드:2, 뷰:1 }, inoutHint:"outdoor", wantPaidRatio:0.75,
+          premiumInclination:0.45, startMin:9*60, lunchMin:13*60
+        },
+        "사색": {
+          tagBoost:{ 사색:4, 역사:3, 힐링:1 }, inoutHint:"indoor",
+          wantPaidRatio:0.4, premiumInclination:0.2, startMin:10*60+30, lunchMin:13*60
+        },
+        "활력": {
+          tagBoost:{ 트렌드:4, 뷰:2, 산책:1 }, inoutHint:"any",
+          wantPaidRatio:0.6, premiumInclination:0.35, startMin:9*60+30, lunchMin:12*60+30
+        }
+      };
+      return { name:key, ...(map[key]||base) };
+    }
+
+    let selectedEmotion = "";
+    // 감정 칩 UI
+    document.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('chip')){
+        document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+        e.target.classList.add('active');
+        selectedEmotion = e.target.dataset.em || "";
+        document.getElementById('emotionInput').value = "";
+        document.getElementById('emotionStatus').textContent = `선택 감정: ${selectedEmotion}`;
+      }
+    });
+
+    /* =============== 공공데이터 로딩 =============== */
     async function fetchArea(areaCode, sigunguCode, contentTypeId, numOfRows=120){
       const u = new URL(TOURAPI_PROXY, location.origin);
       u.searchParams.set("by","area");
@@ -172,7 +248,6 @@
       return Array.from(new Set(tags));
     }
 
-    // 타입/비용 추정(럭셔리/프리미엄 강화)
     function guessType(title="", ctid=""){
       const t=title||"";
       if (ctid==="14") return 'indoor';
@@ -193,7 +268,7 @@
     function estimateHotelNight(title=""){
       const t = title||"";
       if (/포시즌스|콘래드|하얏트|그랜드|페어몬트|래디슨|JW|리츠|신라호텔|롯데호텔|조선팰리스|웨스틴|힐튼/.test(t))
-        return 300000 + Math.floor(Math.random()*350000); // 30만~65만
+        return 300000 + Math.floor(Math.random()*350000);
       if (/리조트|스파|프리미어|프라임|프리미엄|스위트|콘도/.test(t))
         return 180000 + Math.floor(Math.random()*180000);
       if (/호텔|관광호텔|시티|스테이호텔/.test(t))
@@ -228,7 +303,7 @@
       })).filter(h=>isFinite(h.lat)&&isFinite(h.lng));
     }
 
-    // 점수/거리 유틸
+    /* =============== 점수/거리/셔플 유틸 =============== */
     function scorePlace(p, weather){
       const fomo = p.fomo/10;
       const weatherBoost = (weather==='rainy' && p.type==='indoor') ? 6 : (weather==='sunny' && p.type==='outdoor') ? 4 : 0;
@@ -236,7 +311,6 @@
       return fomo + weatherBoost + priceSoft + 6;
     }
     function scoreHotel(h){ return (h.fomo/10) + (h.star||4); }
-
     function haversine(a,b){
       const R=6371; const toRad=d=>d*Math.PI/180;
       const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
@@ -258,74 +332,94 @@
       }
       return route;
     }
+    function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+    function seededShuffle(arr, rand){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+    function uniqueBy(arr, key){ const seen=new Set(); return arr.filter(x=>{ const k=key(x); if(seen.has(k)) return false; seen.add(k); return true; }); }
+    function jaccard(aIds, bIds){ const A=new Set(aIds), B=new Set(bIds); let inter=0; for(const x of A){ if(B.has(x)) inter++; } const uni = A.size + B.size - inter; return uni? inter/uni : 0; }
+    const clamp = (x,lo,hi)=> Math.max(lo, Math.min(hi, x));
+    function toHHMM(m){ const h=Math.floor(m/60), mm=String(m%60).padStart(2,'0'); return `${h}:${mm}` }
 
-    // 메타
-    function buildTripMeta(mode){
-      const nights = mode==="1n2d"?1 : mode==="2n3d"?2 : 0;
-      const days = nights>0 ? nights+1 : 1;
-      const perDay = nights===0 ? 3 : 4;
-      const maxPlaces = days * perDay;
-      return { nights, days, perDay, maxPlaces };
-    }
-
-    // 제안 구성 프로파일(편향/예산/실내외/유료성향/타임라인)
-    function proposalProfiles(mode, weather, inout){
+    /* =============== 프로파일(감정 + 제안별 차등) =============== */
+    function proposalProfiles(mode, weather, inout, emotionProf){
       const hasNight = mode!=="6h";
-      // 베이스 in/out은 사용자 선택, 제안별로 약하게 변형
+
+      // 사용자 in/out과 감정 힌트를 섞음
+      const emotionInOut = emotionProf.inoutHint;
+      const blend = (base)=> (base==="any" ? emotionInOut : base);
       const inOutVariants = {
-        1: inout,
+        1: blend(inout),
         2: inout==="any" ? (weather==="rainy"?"indoor":"outdoor") : inout,
-        3: inout==="any" ? (weather==="sunny"?"outdoor":"indoor") : inout
+        3: inout==="any" ? (emotionInOut==="indoor"?"indoor":"outdoor") : inout
       };
-      // 테마 편향
-      const biases = hasNight ? ['trend_view','history_walk','premium_paid'] : ['walk_view','trend_indoor','premium_paid'];
-      // 예산 배분 (액티비티:숙박)
-      const splits = hasNight ? [[0.45,0.55],[0.65,0.35],[0.30,0.70]] : [[1.0,0],[0.85,0.15],[0.9,0.1]];
 
-      // 타임라인 시작/점심 시각(제안별 차등)
-      const starts = hasNight ? [9*60, 10*60+30, 9*60+45] : [9*60, 11*60, 13*60];
-      const lunches = hasNight ? [13*60, 12*60+30, 14*60] : [12*60+30, 14*60, 12*60];
+      // 감정 선호가 기본 편향에 가산되도록 이름만 다르게 구성
+      const biases = hasNight
+        ? ['trend_view','history_walk','premium_paid']
+        : ['walk_view','trend_indoor','premium_paid'];
 
-      // 프리미엄 옵션 성향
-      const premiumBias = [0.25, 0.15, 0.55]; // 제안3이 프리미엄 선호
+      // 예산 배분: 감정의 유료성향을 3개 제안에 약간씩 흩뿌림
+      const ePaid = emotionProf.wantPaidRatio;
+      const splits = hasNight
+        ? [[0.45,0.55],[clamp(ePaid+0.1,0.3,0.8), 1 - clamp(ePaid+0.1,0.3,0.8)],[clamp(ePaid-0.1,0.2,0.9), 1 - clamp(ePaid-0.1,0.2,0.9)]]
+        : [[1.0,0],[clamp(ePaid+0.05,0.6,1.0),clamp(0.1,0,0.4)],[clamp(ePaid,0.5,1.0),clamp(0.1,0,0.5)]];
+
+      const starts = hasNight ? [emotionProf.startMin, emotionProf.startMin+45, Math.max(9*60, emotionProf.startMin-30)]
+                              : [emotionProf.startMin, emotionProf.startMin+120, emotionProf.startMin+180];
+      const lunches= hasNight ? [emotionProf.lunchMin, emotionProf.lunchMin-30, emotionProf.lunchMin+60]
+                              : [emotionProf.lunchMin, emotionProf.lunchMin+90, emotionProf.lunchMin-30];
+
+      const prem = emotionProf.premiumInclination;
+      const premiumBias = [prem*0.9, prem*0.7, Math.min(0.9, prem+0.25)];
 
       return [1,2,3].map(i=>({
         id: i,
         bias: biases[i-1],
         inout: inOutVariants[i],
-        actRatio: splits[i-1][0], hotelRatio: splits[i-1][1],
+        actRatio: splits[i-1][0],
+        hotelRatio: splits[i-1][1],
         startMin: starts[i-1],
         lunchMin: lunches[i-1],
-        premiumInclination: premiumBias[i-1]
+        premiumInclination: premiumBias[i-1],
+        emotion: emotionProf
       }));
     }
 
-    // 액티비티 선택(제안별 편향 + in/out + 예산에 맞추기 + 중복제어)
+    /* =============== 액티비티/호텔 선택 =============== */
     function selectActivities(pool, conf, actBudget, maxPlaces, strict, alreadyPicked, rand){
-      const tagBoost = p=>{
-        if(conf.bias==='trend_view'){ return (p.themes.includes('트렌드')?3:0) + (p.themes.includes('뷰')?3:0); }
-        if(conf.bias==='history_walk'){ return (p.themes.includes('역사')||p.themes.includes('사색')?4:0) + (p.themes.includes('산책')?2:0); }
-        if(conf.bias==='premium_paid'){ return ((p.cost||0)>0 ? 4:0) + (p.themes.includes('뷰')?1:0); }
-        if(conf.bias==='walk_view'){ return (p.themes.includes('산책')?3:0) + (p.themes.includes('뷰')?2:0); }
-        if(conf.bias==='trend_indoor'){ return (p.themes.includes('트렌드')?3:0) + (p.type==='indoor'?2:0); }
-        return 0;
+      // 감정 태그 가중치
+      const eboost = (p)=>{
+        let s=0;
+        for(const [k,v] of Object.entries(conf.emotion.tagBoost||{})){
+          if(k==='설렬'){ // 오타 보정
+            if(p.themes.includes('설렘')) s+=v;
+            continue;
+          }
+          if(p.themes.includes(k)) s+=v;
+        }
+        return s;
       };
 
-      // 스코어 계산 + in/out 선호 반영
+      const tagBoost = p=>{
+        let s=eboost(p);
+        if(conf.bias==='trend_view'){ s += (p.themes.includes('트렌드')?3:0) + (p.themes.includes('뷰')?3:0); }
+        if(conf.bias==='history_walk'){ s += (p.themes.includes('역사')||p.themes.includes('사색')?4:0) + (p.themes.includes('산책')?2:0); }
+        if(conf.bias==='premium_paid'){ s += ((p.cost||0)>0 ? 4:0) + (p.themes.includes('뷰')?1:0); }
+        if(conf.bias==='walk_view'){ s += (p.themes.includes('산책')?3:0) + (p.themes.includes('뷰')?2:0); }
+        if(conf.bias==='trend_indoor'){ s += (p.themes.includes('트렌드')?3:0) + (p.type==='indoor'?2:0); }
+        return s;
+      };
+
       let base = pool.map(p=>({
         ...p,
         score2: scorePlace(p, window.weatherSel.value) + tagBoost(p) + (conf.inout==='any'?0:(p.type===conf.inout?2:-2))
       }));
 
-      // 중복 최소화: 이미 뽑힌 장소는 큰 패널티
       const pickedSet = new Set(alreadyPicked);
       base.forEach(p=>{ if(pickedSet.has(p.id)) p.score2 -= 5; });
 
-      // 상위 후보 150 → 시드 셔플 → 선택
       base = base.sort((a,b)=> b.score2 - a.score2).slice(0,150);
       base = seededShuffle(base, rand);
 
-      // per-item 상한: 예산이 클수록 넉넉히
       const perItemCeil = maxPlaces>0
         ? Math.max(12000, Math.floor((actBudget*0.85)/maxPlaces * 1.7))
         : Infinity;
@@ -333,8 +427,7 @@
       let candidates = base.filter(p => (p.cost||0) <= perItemCeil);
       if(candidates.length < maxPlaces*1.2) candidates = base;
 
-      // 무료/저가 섞기 vs 유료 강화: bias에 따라 구성 비율 다르게
-      const wantPaidRatio = conf.bias==='premium_paid' ? 0.75 : 0.45;
+      const wantPaidRatio = conf.emotion ? clamp(conf.emotion.wantPaidRatio*0.5 + (conf.bias==='premium_paid'?0.4:0.0), 0.25, 0.85) : 0.45;
       const paid = candidates.filter(p=>(p.cost||0)>0);
       const free = candidates.filter(p=>(p.cost||0)===0);
 
@@ -343,13 +436,11 @@
 
       const chosen=[]; let budgetRemain = Math.floor(actBudget*0.92);
 
-      // 1) 유료 우선 채우기
       for(const p of paid){
         if(chosen.length>=targetPaid) break;
         if(pickedSet.has(p.id)) continue;
         if((p.cost||0) <= budgetRemain){ chosen.push(p); budgetRemain -= (p.cost||0); }
       }
-      // 2) 무료/저가로 나머지 슬롯 채우기
       const cheaper = seededShuffle(free.concat(paid.filter(p=>!chosen.includes(p)).sort((a,b)=>(a.cost||0)-(b.cost||0))), rand);
       for(const p of cheaper){
         if(chosen.length>=maxPlaces) break;
@@ -357,25 +448,20 @@
         const c = p.cost||0;
         if(c<=budgetRemain || !strict){ chosen.push(p); budgetRemain -= c; }
       }
-
-      // 3) 부족하면 그냥 상위권에서 채우기(예산 MARGIN 허용)
       for(const p of base){
         if(chosen.length>=maxPlaces) break;
         if(pickedSet.has(p.id)) continue;
         chosen.push(p);
       }
-
       return chosen.slice(0, maxPlaces);
     }
 
-    // 호텔: 제안별 호텔 비중/프리미엄 성향 반영
     function selectHotels(pool, nights, hotelBudget, strict, conf, rand){
       if(nights<=0) return [];
       const perNightTarget = Math.max(90000, Math.floor(hotelBudget/nights));
       let candidates = pool
         .filter(h => (h.nightCost||0) <= perNightTarget*(conf.bias==='premium_paid'?1.6:1.25))
         .sort((a,b)=> (b.nightCost||0)-(a.nightCost||0));
-
       if(candidates.length===0) candidates = pool.slice().sort((a,b)=> (a.nightCost||0)-(b.nightCost||0));
       candidates = seededShuffle(candidates, rand);
 
@@ -385,7 +471,6 @@
         const c = h.nightCost||0;
         if(!strict || c <= remain || conf.bias==='premium_paid'){ chosen.push(h); remain -= c; }
       }
-      // 부족 시 더 저렴한 것으로 채움
       while(chosen.length<nights){
         const cheap = pool.slice().sort((a,b)=>(a.nightCost||0)-(b.nightCost||0));
         chosen.push(cheap[chosen.length] || cheap[0]);
@@ -393,9 +478,9 @@
       return chosen.slice(0,nights);
     }
 
-    // 타임라인(제안별 시각 차등)
+    /* =============== 타임라인/리밸런싱 =============== */
     function buildTimeline(orderedPlaces, hotels, mode, conf, center){
-      const {nights, days} = buildTripMeta(mode);
+      const { nights, days } = buildTripMeta(mode);
       const start = conf.startMin;
       const perSlot = (mode==="6h"? 90: 100);
       const lunch = conf.lunchMin;
@@ -417,14 +502,11 @@
       }
       return blocks;
     }
-    function toHHMM(m){ const h=Math.floor(m/60), mm=String(m%60).padStart(2,'0'); return `${h}:${mm}` }
 
-    // 남은 예산 채우기: 제안별 프리미엄 성향 반영, 호텔/액티비티 업그레이드, 프리미엄 옵션 삽입
     function rebalanceToBudget(proposal, budget, center, conf, rand){
       const targetLow = Math.floor(budget*0.92), targetHigh = Math.floor(budget*0.985);
       let cur = proposal.money.total;
 
-      // 1) 호텔 업그레이드(프리미엄 성향이 높으면 더 공격적)
       if(cur < targetLow && proposal.hotels.length){
         const allHotels = HOTELS.slice().sort((a,b)=>(b.nightCost||0)-(a.nightCost||0));
         for(let i=0;i<proposal.hotels.length;i++){
@@ -435,11 +517,8 @@
         }
       }
 
-      // 2) 액티비티 업그레이드(프리미엄 성향 높으면 유료 선호)
       if(cur < targetLow && proposal.places.length){
-        const paidDesc = PLACES
-          .filter(p=>(p.cost||0)>0)
-          .sort((a,b)=>(b.cost||0)-(a.cost||0));
+        const paidDesc = PLACES.filter(p=>(p.cost||0)>0).sort((a,b)=>(b.cost||0)-(a.cost||0));
         for(let i=0;i<proposal.places.length;i++){
           const p = proposal.places[i];
           const better = paidDesc.find(x => (x.cost||0) > (p.cost||0) && (cur + (x.cost-p.cost)) <= targetHigh);
@@ -448,7 +527,6 @@
         }
       }
 
-      // 3) 프리미엄 추가 옵션 삽입(확률/성향 반영)
       const extras = [
         {name:"🍽️ 프리미엄 디너 코스", cost:120000},
         {name:"💆 스파·사우나 2시간", cost:90000},
@@ -469,7 +547,6 @@
         tries++;
       }
 
-      // 합계/세부합계 갱신
       const actTotal = proposal.places.reduce((s,p)=>s+(p.cost||0),0)
         + proposal.blocks.filter(b=>b.type==='extra').reduce((s,b)=>s+(b.cost||0),0)
         + proposal.blocks.filter(b=>b.type==='meal').reduce((s,b)=>s+(b.cost||0),0);
@@ -478,36 +555,43 @@
       return proposal;
     }
 
-    // 제안 생성(중복 제한/자카드 유사도 관리)
+    /* =============== 메타/생성/렌더 =============== */
+    function buildTripMeta(mode){
+      const nights = mode==="1n2d"?1 : mode==="2n3d"?2 : 0;
+      const days = nights>0 ? nights+1 : 1;
+      const perDay = nights===0 ? 3 : 4;
+      const maxPlaces = days * perDay;
+      return { nights, days, perDay, maxPlaces };
+    }
+
     function generateProposals({center, mode, budget, weather, inout, strict}){
       const { maxPlaces, nights } = buildTripMeta(mode);
-      const profiles = proposalProfiles(mode, weather, inout);
-
       const placePool = PLACES.map(p=>({...p, score: scorePlace(p, weather)}));
       const hotelPool = HOTELS.map(h=>({...h, score: scoreHotel(h)}));
 
+      const emotionText = document.getElementById('emotionInput').value.trim() || selectedEmotion;
+      const eprof = emotionProfile(emotionText);
+      document.getElementById('emotionStatus').textContent = `적용 감정: ${eprof.name} (선호: ${eprof.inoutHint}, 유료비중≈${Math.round(eprof.wantPaidRatio*100)}%)`;
+
+      const profiles = proposalProfiles(mode, weather, inout, eprof);
+
       const proposals = [];
-      const usedIds = new Set(); // 제안 간 중복 최소화를 위한 누적
-      const jaccardMax = 0.6; // 제안 간 장소 유사도 상한
+      const usedIds = new Set();
+      const jaccardMax = 0.6;
 
       profiles.forEach((conf, idx)=>{
-        const seed = 101 * (idx+1) + Math.floor(budget/10000);
+        const seed = 131 * (idx+1) + Math.floor(budget/10000);
         const rand = mulberry32(seed);
 
-        // 제안별 예산 비율
         const hotelBudget = nights>0 ? Math.floor(budget * conf.hotelRatio) : 0;
         const actBudget   = Math.max(0, budget - hotelBudget);
 
-        // 액티비티 선택(이미 고른 장소 패널티)
         let acts = selectActivities(placePool, conf, actBudget, maxPlaces, strict, Array.from(usedIds), rand);
 
-        // 유사도 체크 → 과도한 중복 시 교체 시도
         for(const prev of proposals){
           let jac = jaccard(acts.map(x=>x.id), prev.places.map(x=>x.id));
           if(jac > jaccardMax){
-            // 과도 중복 → 후보 재섞기 후 상위 일부 교체
             acts = seededShuffle(acts, rand);
-            // 교체 대상: 중복되는 애들부터 치환
             const prevSet = new Set(prev.places.map(x=>x.id));
             let replaced = 0;
             for(let i=0;i<acts.length;i++){
@@ -520,7 +604,6 @@
           }
         }
 
-        // 경로/호텔/타임라인 구성
         const ordered = nearestNeighborOrder(acts, center);
         const hotels = selectHotels(hotelPool, nights, hotelBudget, strict, conf, rand);
         const blocks = buildTimeline(ordered, hotels, mode, conf, center);
@@ -538,14 +621,12 @@
 
         const tuned = rebalanceToBudget(base, budget, center, conf, rand);
         proposals.push(tuned);
-        // 이번 제안의 장소 ID 일부를 사용 처리(중복 억제)
-        ordered.forEach((p,i)=>{ if(i<Math.ceil(maxPlaces*0.6)) usedIds.add(p.id); });
+        ordered.slice(0, Math.ceil(maxPlaces*0.6)).forEach(p=>usedIds.add(p.id));
       });
 
       return proposals;
     }
 
-    // 지도 렌더링
     function clearRoutes(){
       ['route1','route2','route3'].forEach(k=>{ if(layers[k]){ map.removeLayer(layers[k]); layers[k]=null; }});
       layers.markers.clearLayers();
@@ -601,11 +682,13 @@
 
         const ratioTxt = `${Math.round(p.conf.actRatio*100)}:${Math.round(p.conf.hotelRatio*100)}`;
         const inoutTxt = p.conf.inout==='any'?'실내/외 혼합':(p.conf.inout==='indoor'?'실내 선호':'실외 선호');
+        const emo = p.conf.emotion?.name || '-';
 
         wrap.innerHTML = `
           <div class="flex items-center justify-between mb-1">
             <div class="font-bold ${colorClass}">${title}</div>
             <div class="flex items-center gap-2">
+              <span class="badge">감정: ${emo}</span>
               <span class="badge">${biasLabel}</span>
               <span class="badge">${inoutTxt}</span>
               <span class="badge">액티비티/숙박 ${ratioTxt}</span>
@@ -621,7 +704,6 @@
         box.appendChild(wrap);
       });
 
-      // 버튼 이벤트
       box.querySelectorAll('button[data-action="show"]').forEach(btn=>{
         btn.onclick = ()=> {
           const id = Number(btn.dataset.prop);
@@ -652,7 +734,7 @@
       `;
     }
 
-    // ===== 이벤트 =====
+    /* =============== 이벤트 바인딩 =============== */
     let currentCenter = { lat:37.5665, lng:126.9780 };
     let currentProposals = [];
 
@@ -665,10 +747,10 @@
 
       try{
         const [raw12, raw14, raw28, raw32] = await Promise.all([
-          fetchArea(SEOUL_AREACODE, sigungu, 12, 220),  // 관광지
-          fetchArea(SEOUL_AREACODE, sigungu, 14, 160),  // 문화시설
-          fetchArea(SEOUL_AREACODE, sigungu, 28, 160),  // 레포츠/체험
-          fetchArea(SEOUL_AREACODE, sigungu, 32, 220),  // 숙박
+          fetchArea(SEOUL_AREACODE, sigungu, 12, 220),
+          fetchArea(SEOUL_AREACODE, sigungu, 14, 160),
+          fetchArea(SEOUL_AREACODE, sigungu, 28, 160),
+          fetchArea(SEOUL_AREACODE, sigungu, 32, 220),
         ]);
         PLACES = uniqueBy([
           ...mapItemsToPlaces(raw12),
@@ -694,8 +776,7 @@
       const weather= document.getElementById('weather').value;
       const inout  = document.getElementById('inout').value;
       const strict = !!document.getElementById('strictBudget').checked;
-
-      window.weatherSel = { value: weather }; // 내부 함수에서 참조
+      window.weatherSel = { value: weather };
 
       currentProposals = generateProposals({
         center: currentCenter, mode, budget, weather, inout, strict
@@ -706,7 +787,7 @@
       updateSummary(currentProposals[0].money.actTotal, currentProposals[0].money.hotelTotal);
 
       const t = currentProposals[0].money.total.toLocaleString();
-      document.getElementById('status').textContent = `코스 자동 생성 완료 · 제안 3종(서로 다른 편향/예산배분/타임라인) · 1안 총액 ~${t}원 (목표 ${Math.round(TARGET_UTIL*100)}%)`;
+      document.getElementById('status').textContent = `코스 자동 생성 완료 · 제안 3종(감정 반영 + 서로 다른 편향/예산배분/타임라인) · 1안 총액 ~${t}원 (목표 ${Math.round(TARGET_UTIL*100)}%)`;
     };
   </script>
 </body>
