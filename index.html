@@ -143,6 +143,13 @@
           <option value="39" data-center="33.4996,126.5312">제주특별자치도</option>
         </select>
         <button id="btnAreaLoad" class="btn btn-outline">지역 불러오기</button>
+
+        <!-- 선택: 예산 엄수 -->
+        <label class="ml-2 text-sm flex items-center gap-1">
+          <input id="strictBudget" type="checkbox" class="scale-110" />
+          예산 엄수
+        </label>
+
         <div class="ml-auto flex gap-2">
           <button id="btnRecommend" class="btn btn-primary">추천 보기</button>
           <button id="btnRoute" class="btn btn-outline">루트 생성</button>
@@ -158,7 +165,7 @@
       <div class="card">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold">추천 장소</h3>
-          <span class="badge">FOMO 상위순</span>
+          <span class="badge">FOMO 상위순 + 예산 반영</span>
         </div>
         <ul id="list" class="space-y-3"></ul>
       </div>
@@ -180,6 +187,7 @@
         </div>
       </div>
       <ol id="route" class="list-decimal list-inside text-sm text-gray-700"></ol>
+      <div id="planCost" class="mt-2 text-sm text-gray-600"></div>
     </div>
   </section>
 
@@ -198,7 +206,7 @@
     // ===== 기본 설정 =====
     document.getElementById('yy').textContent = new Date().getFullYear();
 
-    // ⚠️ 여기를 네 Vercel 주소로!
+    // 여기를 네 Vercel 주소로!
     const TOURAPI_PROXY = "https://trendtrip.vercel.app/api/tourapi";
 
     // 지도 초기 중심(서울 시청)
@@ -243,8 +251,10 @@
     const listEl = document.getElementById('list');
     const statusEl = document.getElementById('status');
     const routeEl = document.getElementById('route');
+    const planCostEl = document.getElementById('planCost');
     const sidoSel = document.getElementById('sido');
     const btnAreaLoad = document.getElementById('btnAreaLoad');
+    const strictBudgetChk = document.getElementById('strictBudget');
 
     // ===== 감정 Chips =====
     let selectedEmotion = null;
@@ -274,7 +284,19 @@
       map.setView([lat, lng], zoom);
     }
 
-    // ===== TourAPI 호출 =====
+    // ===== 비용 추정 =====
+    function estimateCostByTitleAndType(title = "", type = "outdoor") {
+      const t = title || "";
+      if (/(공원|숲|산책|천|강|호수|해변|오름|둘레길|시장|거리|스트리트)/.test(t)) return 0;
+      if (/(타워|전망|전망대|스카이|N타워|서울타워|랜드마크)/.test(t)) return 16000;
+      if (/(박물관|미술관|전시|기념관|아트|갤러리)/.test(t)) return 4000 + Math.floor(Math.random()*6000); // 4천~1만원
+      if (/(테마|체험|아쿠아리움|플래그십|전망층|VR|AR)/.test(t)) return 12000 + Math.floor(Math.random()*8000); // 1.2만~2만원
+      if (/(더현대|백화점|아울렛|몰|쇼핑|마켓|상가)/.test(t)) return 0;
+      if (type === 'indoor') return 3000 + Math.floor(Math.random()*4000); // 3천~7천
+      return 0;
+    }
+
+    // ===== TourAPI 제목 기반 테마 추론 =====
     function deriveThemesFromTitle(t=''){
       const tags = [];
       if (/공원|숲|산책|천|호수|섬|오름/.test(t)) tags.push('산책','힐링');
@@ -284,19 +306,26 @@
       return Array.from(new Set(tags));
     }
 
+    // ===== TourAPI 결과 → 내부 포맷 변환 =====
     function mapItemsToPlaces(items){
-      return (items || []).map((it, idx)=>({
-        id: idx+1,
-        name: it.title,
-        lat: Number(it.mapy),
-        lng: Number(it.mapx),
-        type: (String(it.contenttypeid)==='14' || /박물관|미술관|전시/.test(it.title)) ? 'indoor' : 'outdoor',
-        cost: 0,
-        themes: deriveThemesFromTitle(it.title || ""),
-        fomo: 70 + (idx % 25)
-      })).filter(p=>isFinite(p.lat)&&isFinite(p.lng));
+      return (items || []).map((it, idx)=>{
+        const typeGuess = (String(it.contenttypeid)==='14' || /박물관|미술관|전시/.test(it.title)) ? 'indoor' : 'outdoor';
+        const themes = deriveThemesFromTitle(it.title || "");
+        const cost = estimateCostByTitleAndType(it.title || "", typeGuess);
+        return {
+          id: idx+1,
+          name: it.title,
+          lat: Number(it.mapy),
+          lng: Number(it.mapx),
+          type: typeGuess,
+          cost,
+          themes,
+          fomo: 70 + (idx % 25)
+        };
+      }).filter(p=>isFinite(p.lat)&&isFinite(p.lng));
     }
 
+    // ===== TourAPI 호출 =====
     async function loadPlacesByLocation(center=CENTER, radius=5000){
       const u = new URL(TOURAPI_PROXY);
       u.searchParams.set("by","location");
@@ -333,6 +362,72 @@
       }
     }
 
+    // ===== 예산 기반 선택 함수 =====
+    function pickByBudgetAndScore(pool, budgetCap, maxPlaces, strict=false){
+      if (!pool.length) return [];
+
+      // 1) 무료 우선 확보
+      const freeFirst = pool
+        .filter(p => (p.cost||0) === 0)
+        .slice(0, Math.min(3, maxPlaces));
+
+      let remainingBudget = budgetCap - freeFirst.reduce((s,p)=>s+(p.cost||0), 0);
+      let remainingSlots = maxPlaces - freeFirst.length;
+
+      // 2) 효율(점수/비용) 기준 그리디
+      const candidates = pool
+        .filter(p => !freeFirst.find(f => f.id === p.id))
+        .sort((a,b)=>{
+          const ra = (a.cost||0) > 0 ? (a.score / a.cost) : a.score * 10;
+          const rb = (b.cost||0) > 0 ? (b.score / b.cost) : b.score * 10;
+          return rb - ra;
+        });
+
+      const chosen = [...freeFirst];
+      for (const p of candidates){
+        if (remainingSlots <= 0) break;
+        const price = p.cost||0;
+        if (price <= remainingBudget){
+          chosen.push(p);
+          remainingBudget -= price;
+          remainingSlots -= 1;
+        } else if (!strict && chosen.length === 0 && price <= budgetCap * 1.1) {
+          // 엄수 미사용이고 하나도 못 고른 극단 상황이면 소폭 초과 10% 허용
+          chosen.push(p);
+          remainingSlots -= 1;
+          remainingBudget = -1; // 이후 추가 선택 방지
+          break;
+        }
+      }
+
+      // 3) 너무 적으면 저가로 보충
+      if (chosen.length < Math.max(2, Math.floor(maxPlaces/2))){
+        const cheap = candidates
+          .filter(p => !chosen.find(c=>c.id===p.id))
+          .sort((a,b)=> (a.cost||0) - (b.cost||0));
+        for (const c of cheap){
+          if (chosen.length >= maxPlaces) break;
+          const price = c.cost||0;
+          if (price <= remainingBudget){
+            chosen.push(c);
+            remainingBudget -= price;
+          }
+        }
+      }
+
+      // 4) 그래도 비었으면 무료로 채우기
+      if (chosen.length < maxPlaces){
+        const moreFree = pool
+          .filter(p => (p.cost||0) === 0 && !chosen.find(c=>c.id===p.id));
+        for (const f of moreFree){
+          if (chosen.length >= maxPlaces) break;
+          chosen.push(f);
+        }
+      }
+
+      return chosen.slice(0, maxPlaces);
+    }
+
     // ===== 추천/필터 =====
     function filterByInputs(){
       const emotion = selectedEmotion || customEmotion.value.trim();
@@ -340,6 +435,7 @@
       const weather = weatherSel.value;
       const inout = inoutSel.value;
       const budget = Number(budgetInp.value || 0);
+      const strict = !!strictBudgetChk?.checked;
 
       const weatherBoost = (p)=>{
         if(weather==='rainy' && p.type==='indoor') return 6;
@@ -349,19 +445,25 @@
       const ioPass = (p)=> inout==='any' ? true : p.type===inout;
 
       const maxPlaces = Math.max(2, Math.min(6, Math.floor((Number(hoursSel.value)||8)/2)));
-      const roughMaxPerPlace = Math.max(0, Math.floor(budget / maxPlaces));
 
-      const scored = PLACES.map(p=>{
+      const scoredAll = PLACES.map(p=>{
         const themeHit = themes.some(t=>p.themes.includes(t)) ? 8 : 0;
         const fomo = p.fomo/10;
-        const priceOk = p.cost <= (roughMaxPerPlace || Infinity) ? 3 : -3;
-        const score = themeHit + weatherBoost(p) + fomo + priceOk;
+        const priceSoftPenalty = (p.cost||0) > 0 ? - ((p.cost||0) >= 15000 ? 3 : ( (p.cost||0) >= 8000 ? 1 : 0)) : 1;
+        const score = themeHit + weatherBoost(p) + fomo + priceSoftPenalty;
         return {...p, score};
       }).filter(ioPass)
-        .sort((a,b)=> b.score - a.score)
-        .slice(0, 12);
+        .sort((a,b)=> b.score - a.score);
 
-      return {scored, emotion, maxPlaces};
+      // 예산의 70%만 코스 비용으로 사용 (식사/교통 여유)
+      const budgetCap = Math.max(0, Math.floor(budget * 0.7));
+
+      // 상위 30개 내에서 예산 최적 선택
+      const pool = scoredAll.slice(0, 30);
+      const chosen = pickByBudgetAndScore(pool, budgetCap, maxPlaces, strict);
+      const totalCost = chosen.reduce((s,p)=>s+(p.cost||0), 0);
+
+      return {scored: chosen, emotion, maxPlaces, totalCost, budgetCap, strict};
     }
 
     function renderList(items){
@@ -375,7 +477,7 @@
             <div class="w-10 h-10 flex items-center justify-center rounded-xl bg-sky-50 text-sky-700 font-bold">${Math.round(p.fomo)}</div>
             <div class="flex-1">
               <div class="font-semibold">${p.name}</div>
-              <div class="text-xs text-gray-500">${p.type==='indoor'?'실내':'실외'} · 예상비용 ~${p.cost.toLocaleString()}원 · 테마: ${p.themes.join(', ')}</div>
+              <div class="text-xs text-gray-500">${p.type==='indoor'?'실내':'실외'} · 예상비용 ~${(p.cost||0).toLocaleString()}원 · 테마: ${p.themes.join(', ')}</div>
             </div>
             <button class="btn btn-outline" onclick='addToPlan(${p.id})'>추가</button>
           </div>`;
@@ -397,12 +499,15 @@
     }
     function renderPlan(){
       routeEl.innerHTML = '';
+      let total = 0;
       plan.forEach((p,i)=>{
         const li = document.createElement('li');
         li.className = 'mb-1';
-        li.textContent = `${i+1}. ${p.name}`;
+        li.textContent = `${i+1}. ${p.name} (~${(p.cost||0).toLocaleString()}원)`;
         routeEl.appendChild(li);
+        total += (p.cost||0);
       });
+      planCostEl.textContent = `총 예상 코스비: ~${total.toLocaleString()}원`;
       drawRoute();
     }
     function drawRoute(){
@@ -415,25 +520,33 @@
 
     // ===== 이벤트 =====
     document.getElementById('btnRecommend').onclick = ()=>{
-      const {scored, emotion} = filterByInputs();
+      const {scored, emotion, totalCost, budgetCap, strict} = filterByInputs();
       renderList(scored);
-      statusEl.textContent = emotion ? `“${emotion}” 감정 기반 추천을 적용했습니다.` : '감정을 선택/입력하면 더 정교해져요.';
+      const tag = strict ? " (예산 엄수)" : "";
+      statusEl.textContent = emotion
+        ? `“${emotion}” 감정 + 예산 기반 추천${tag} · 코스비 ~${(totalCost||0).toLocaleString()}원 / 캡 ${budgetCap.toLocaleString()}원`
+        : `추천 갱신${tag} · 코스비 ~${(totalCost||0).toLocaleString()}원 / 캡 ${budgetCap.toLocaleString()}원`;
     };
+
     document.getElementById('btnRoute').onclick = ()=>{
-      const {scored, maxPlaces} = filterByInputs();
+      const {scored, maxPlaces, totalCost, budgetCap, strict} = filterByInputs();
       plan.splice(0, plan.length, ...scored.slice(0, Math.min(maxPlaces, scored.length)));
       renderPlan();
-      statusEl.textContent = `예산/시간을 반영해 ${plan.length}곳 경로를 구성했습니다.`;
+      const tag = strict ? " (예산 엄수)" : "";
+      statusEl.textContent = `예산/시간 반영 완료${tag}: ${plan.length}곳, 코스비 ~${(totalCost||0).toLocaleString()}원 / 캡 ${budgetCap.toLocaleString()}원.`;
     };
+
     document.getElementById('btnQuick').onclick = ()=>{
       selectedEmotion = '무기력'; highlightChips('무기력');
       weatherSel.value = 'sunny'; inoutSel.value='any'; budgetInp.value=60000; hoursSel.value=8;
-      const {scored} = filterByInputs();
+      strictBudgetChk.checked = false;
+      const {scored, totalCost, budgetCap} = filterByInputs();
       renderList(scored);
       plan.splice(0, plan.length, ...scored.slice(0,4));
       renderPlan();
-      statusEl.textContent = '빠른 체험 시나리오를 적용했습니다.';
+      statusEl.textContent = `빠른 체험 적용: 코스비 ~${(totalCost||0).toLocaleString()}원 / 캡 ${budgetCap.toLocaleString()}원`;
     };
+
     document.getElementById('btnSave').onclick = ()=>{
       localStorage.setItem('trendtrip_plan', JSON.stringify(plan));
       alert('플랜이 저장되었습니다.');
@@ -455,16 +568,17 @@
       statusEl.textContent = '지역 데이터를 불러오는 중…';
       const n = await loadPlacesByArea(areaCode);
       setMapCenter(lat, lng, 11);
-      const { scored } = filterByInputs();
+      const { scored, totalCost, budgetCap } = filterByInputs();
       renderList(scored);
-      statusEl.textContent = `${opt.text}에서 ${n}개 후보를 불러왔습니다.`;
+      statusEl.textContent = `${opt.text}에서 ${n}개 후보 로드 · 코스비 ~${(totalCost||0).toLocaleString()}원 / 캡 ${budgetCap.toLocaleString()}원`;
     });
 
     // 최초 진입: 서울 기준 반경 검색(프록시가 준비 안 됐으면 목업으로 표시)
     (async ()=>{
       await loadPlacesByLocation(CENTER, 4000);
-      const { scored } = filterByInputs();
+      const { scored, totalCost, budgetCap } = filterByInputs();
       renderList(scored);
+      statusEl.textContent = `초기 추천 로드 · 코스비 ~${(totalCost||0).toLocaleString()}원 / 캡 ${budgetCap.toLocaleString()}원`;
     })();
   </script>
 </body>
