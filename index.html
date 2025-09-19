@@ -39,7 +39,7 @@
         <div class="badge mb-2">여행 설정</div>
         <label class="block text-sm mb-1">서울 구 선택</label>
         <select id="district" class="w-full border rounded-xl px-3 py-2">
-          <!-- 서울 시군구코드(확정): 종로(1) 중구(2) 용산(3) 성동(4) 광진(5) … -->
+          <!-- 서울 시군구코드 -->
           <option value="4"  data-center="37.5639,127.0364">성동구</option>
           <option value="5"  data-center="37.5387,127.0822">광진구</option>
           <option value="1"  data-center="37.5733,126.9793">종로구</option>
@@ -125,8 +125,8 @@
     const TOURAPI_PROXY = "/api/tourapi";
     const SEOUL_AREACODE = 1;
 
-    let PLACES = []; // contentTypeId=12
-    let HOTELS = []; // contentTypeId=32
+    let PLACES = []; // 12+14+28
+    let HOTELS = []; // 32
 
     // 지도
     let map, layers = { markers: null, route1:null, route2:null, route3:null };
@@ -136,7 +136,7 @@
       layers.markers = L.layerGroup().addTo(map);
     })();
 
-    // ===== 로딩(TourAPI: 구코드로 엄격 제한) =====
+    // ===== TourAPI: 구코드 기반 로딩 (12/14/28 + 32) =====
     async function fetchArea(areaCode, sigunguCode, contentTypeId, numOfRows=120){
       const u = new URL(TOURAPI_PROXY, location.origin);
       u.searchParams.set("by","area");
@@ -153,33 +153,40 @@
       const tags = [];
       if (/공원|숲|산책|천|호수|섬|오름|둘레길|성곽길/.test(t)) tags.push('산책','힐링');
       if (/타워|전망|스카이|뷰|포토|야경/.test(t)) tags.push('뷰','설렘');
-      if (/박물관|미술관|역사|궁|성|전시|기념관/.test(t)) tags.push('역사','사색');
+      if (/박물관|미술관|역사|궁|성|전시|기념관|도서관/.test(t)) tags.push('역사','사색');
       if (!tags.length) tags.push('트렌드');
       return Array.from(new Set(tags));
     }
 
-    // 비용 추정(단순 휴리스틱)
+    // 타입/비용 추정 개선
+    function guessType(title="", ctid=""){
+      const t=title||"";
+      if (ctid==="14") return 'indoor';
+      if (/박물관|미술관|전시|기념관|도서관|갤러리|아쿠아리움|키즈|VR|AR|쇼핑몰|몰|백화점|전망대/.test(t)) return 'indoor';
+      if (/공원|산|둘레길|성곽길|강|천|호수|시장|거리|광장|한강|야외|야경포인트/.test(t)) return 'outdoor';
+      return 'outdoor';
+    }
     function estimatePlaceCost(title="", type="outdoor", ctid=""){
       const t = title||"";
-      if (ctid==="14" || /박물관|미술관|전시|기념관/.test(t)) return 5000 + Math.floor(Math.random()*7000);
-      if (ctid==="28" || /체험|테마|VR|AR|카트|서핑|아쿠아리움|케이블카|전망대/.test(t)) return 12000 + Math.floor(Math.random()*14000);
+      if (ctid==="14" || /박물관|미술관|전시|기념관|아쿠아리움/.test(t)) return 6000 + Math.floor(Math.random()*9000);
+      if (ctid==="28" || /체험|테마|VR|AR|카트|서핑|케이블카|전망대/.test(t)) return 12000 + Math.floor(Math.random()*14000);
       if (/타워|전망|N타워|서울타워/.test(t)) return 15000 + Math.floor(Math.random()*8000);
-      if (/공원|숲|산책|천|강|호수|해변|오름|시장|거리|둘레길|성곽길/.test(t)) return Math.random()<0.5?0:1000+Math.floor(Math.random()*2000);
+      if (/공원|숲|산책|천|강|호수|해변|오름|시장|거리|둘레길|성곽길|한강/.test(t)) return Math.random()<0.5?0:1000+Math.floor(Math.random()*2000);
       if (/궁|고궁|왕릉|사찰|한옥|문화재/.test(t)) return Math.floor(Math.random()*4000);
       if (/백화점|아울렛|몰|더현대|플래그십|쇼핑|마켓/.test(t)) return 0;
-      return type==='indoor' ? 6000 + Math.floor(Math.random()*9000) : (Math.random()<0.7?0:1000+Math.floor(Math.random()*3000));
+      return type==='indoor' ? 7000 + Math.floor(Math.random()*9000) : (Math.random()<0.7?0:1000+Math.floor(Math.random()*3000));
     }
     function estimateHotelNight(title=""){
       const t = title||"";
       if (/리조트|스파|프리미어|수영장|콘도/.test(t)) return 120000 + Math.floor(Math.random()*80000);
-      if (/호텔|관광호텔|시티|마이스/.test(t)) return 80000 + Math.floor(Math.random()*60000);
+      if (/호텔|관광호텔|시티|마이스|스테이호텔/.test(t)) return 80000 + Math.floor(Math.random()*60000);
       if (/한옥|스테이|펜션|게스트|민박|호스텔/.test(t)) return 40000 + Math.floor(Math.random()*40000);
       return 70000 + Math.floor(Math.random()*60000);
     }
 
     function mapItemsToPlaces(items){
       return (items||[]).map((it,idx)=>{
-        const typeGuess = (String(it.contenttypeid)==='14' || /박물관|미술관|전시/.test(it.title)) ? 'indoor' : 'outdoor';
+        const typeGuess = guessType(it.title||"", String(it.contenttypeid||""));
         return {
           id: idx+1,
           name: it.title,
@@ -207,7 +214,7 @@
       const fomo = p.fomo/10;
       const weatherBoost = (weather==='rainy' && p.type==='indoor') ? 6 : (weather==='sunny' && p.type==='outdoor') ? 4 : 0;
       const priceSoft = (p.cost||0) > 0 ? - ((p.cost||0) >= 18000 ? 3 : ((p.cost||0) >= 10000 ? 1 : 0)) : 1;
-      return fomo + weatherBoost + priceSoft + 6; // 기본 가중
+      return fomo + weatherBoost + priceSoft + 6;
     }
     function scoreHotel(h){ return (h.fomo/10) + (h.star||4); }
 
@@ -216,9 +223,8 @@
       const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
       const s1=Math.sin(dLat/2), s2=Math.sin(dLng/2);
       const c=2*Math.asin(Math.sqrt(s1*s1+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*s2*s2));
-      return R*c; // km
+      return R*c;
     }
-
     function nearestNeighborOrder(points, start){
       if(points.length<=1) return points.slice();
       const used=new Set(); let route=[]; let cur={...start};
@@ -234,17 +240,17 @@
       return route;
     }
 
-    // 제안 생성
+    // 메타
     function buildTripMeta(mode){
       const nights = mode==="1n2d"?1 : mode==="2n3d"?2 : 0;
       const days = nights>0 ? nights+1 : 1;
-      const perDay = nights===0 ? 3 : 4; // 한 날 3~4곳
+      const perDay = nights===0 ? 3 : 4;
       const maxPlaces = days * perDay;
       return { nights, days, perDay, maxPlaces };
     }
 
-    function selectActivities(pool, actBudget, maxPlaces, strict, bias){
-      // bias: 'view' | 'history' | 'trend' 등 테마 가중치
+    // 액티비티 선택(완화 단계 포함)
+    function selectActivities(pool, actBudget, maxPlaces, strict, bias, inout){
       const tagBoost = p=>{
         if(bias==='view' && p.themes.includes('뷰')) return 4;
         if(bias==='history' && (p.themes.includes('역사')||p.themes.includes('사색'))) return 4;
@@ -253,20 +259,29 @@
         return 0;
       };
 
-      const sorted = pool
-        .map(p=>({...p, score2: p.score + tagBoost(p)}))
-        .sort((a,b)=> b.score2 - a.score2)
-        .slice(0,60);
+      // 0) 점수 베이스
+      let base = pool.map(p=>({...p, score2: scorePlace(p, weatherSel.value) + tagBoost(p)}))
+                     .sort((a,b)=> b.score2 - a.score2)
+                     .slice(0,80);
 
-      const perItemCeil = maxPlaces>0 ? Math.max(3000, Math.floor((actBudget*0.7)/maxPlaces*1.2)) : Infinity;
-      let filtered = sorted.filter(p => (p.cost||0) <= perItemCeil);
-      if(filtered.length < Math.max(6, maxPlaces*2)) filtered = sorted;
+      // 1) in/out 적용
+      let step1 = inout==='any' ? base : base.filter(p=>p.type===inout);
+      // 부족하면 in/out 완화
+      if(step1.length < maxPlaces*1.5) step1 = base;
 
-      const freeFirst = filtered.filter(p => (p.cost||0)===0).slice(0, Math.min(3,maxPlaces));
+      // 2) 상한가 적용
+      const perItemCeil = maxPlaces>0 ? Math.max(3000, Math.floor((actBudget*0.7)/maxPlaces*1.3)) : Infinity;
+      let candidates = step1.filter(p => (p.cost||0) <= perItemCeil);
+
+      // 상한가 때문에 0이면 → 상한가 완화
+      if(candidates.length === 0) candidates = step1;
+
+      // 3) 무료 우선 + 가성비 그리디
+      const freeFirst = candidates.filter(p => (p.cost||0)===0).slice(0, Math.min(3, maxPlaces));
       let remain = Math.floor(actBudget*0.7) - freeFirst.reduce((s,p)=>s+(p.cost||0),0);
       let slots = maxPlaces - freeFirst.length;
 
-      const candidates = filtered
+      const rest = candidates
         .filter(p=>!freeFirst.find(f=>f.id===p.id))
         .sort((a,b)=>{
           const ra = (a.cost||0)>0 ? (a.score2/a.cost) : a.score2*10;
@@ -275,29 +290,32 @@
         });
 
       const chosen=[...freeFirst];
-      for(const p of candidates){
+      for(const p of rest){
         if(slots<=0) break;
         const c=p.cost||0;
         if(c<=remain){ chosen.push(p); remain-=c; slots--; }
-        else if(!strict && chosen.length===0 && c<=actBudget*0.8){ chosen.push(p); break; }
+        else if(!strict && chosen.length===0 && c<=actBudget*0.9){ chosen.push(p); break; }
       }
-      // 저가 보충
-      if(chosen.length<maxPlaces){
-        const cheap=candidates.filter(p=>!chosen.find(x=>x.id===p.id)).sort((a,b)=>(a.cost||0)-(b.cost||0));
+
+      // 4) 여전히 모자라면: 값싼 순/무료로 보충
+      if(chosen.length < maxPlaces){
+        const cheap = rest.filter(p=>!chosen.find(x=>x.id===p.id)).sort((a,b)=>(a.cost||0)-(b.cost||0));
         for(const p of cheap){ if(chosen.length>=maxPlaces) break; const c=p.cost||0; if(c<=remain){ chosen.push(p); remain-=c; } }
       }
-      // 무료로 채우기
-      if(chosen.length<maxPlaces){
-        const moreFree=filtered.filter(p=>(p.cost||0)===0 && !chosen.find(x=>x.id===p.id));
+      if(chosen.length < Math.max(2, maxPlaces)){ // 최종 안전장치
+        const moreFree = step1.filter(p=>(p.cost||0)===0 && !chosen.find(x=>x.id===p.id));
         for(const p of moreFree){ if(chosen.length>=maxPlaces) break; chosen.push(p); }
       }
-      return chosen.slice(0,maxPlaces);
+      // 정말 없으면 그냥 점수 상위에서 maxPlaces 만큼
+      if(chosen.length === 0) chosen.push(...step1.slice(0, Math.max(2, maxPlaces)));
+
+      return chosen.slice(0, maxPlaces);
     }
 
     function selectHotels(pool, nights, hotelBudget, strict){
       if(nights<=0) return [];
       const perNight = Math.max(30000, Math.floor(hotelBudget/nights));
-      let candidates = pool.filter(h => (h.nightCost||0) <= perNight*1.15);
+      let candidates = pool.filter(h => (h.nightCost||0) <= perNight*1.2);
       if(candidates.length===0) candidates = pool.slice().sort((a,b)=>(a.nightCost||0)-(b.nightCost||0)).slice(0,12);
       candidates.forEach(h=> h.score2 = scoreHotel(h) + (h.nightCost>0 ? 30000/(h.nightCost):0));
       const sorted = candidates.sort((a,b)=> b.score2 - a.score2);
@@ -308,17 +326,11 @@
         const c=h.nightCost||0;
         if(!strict || c<=remain){ chosen.push(h); remain-=c; }
       }
-      // 엄수 실패 시 더 싼 숙소로 채우기
-      if(strict && chosen.length<nights){
+      if(chosen.length<nights){ // 최후 보정
         const cheap = pool.slice().sort((a,b)=>(a.nightCost||0)-(b.nightCost||0));
         while(chosen.length<nights) chosen.push(cheap[chosen.length] || cheap[0]);
       }
       return chosen.slice(0, nights);
-    }
-
-    function orderRouteByNN(places, center){
-      if(places.length<=1) return places;
-      return nearestNeighborOrder(places, center);
     }
 
     function buildTimeline(orderedPlaces, hotels, mode){
@@ -344,32 +356,27 @@
     }
     function toHHMM(m){ const h=Math.floor(m/60), mm=String(m%60).padStart(2,'0'); return `${h}:${mm}` }
 
-    // ===== 제안 생성 메인 =====
+    // 제안 생성
     function generateProposals({center, mode, budget, weather, inout, strict}){
       const { maxPlaces, nights } = buildTripMeta(mode);
-      // 예산 분배(숙박 60% / 액티비티 40%)
       const hotelBudget = nights>0 ? Math.floor(budget*0.6) : 0;
       const actBudget = budget - hotelBudget;
 
-      const placePool = PLACES
-        .filter(p => inout==='any' ? true : p.type===inout)
-        .map(p=>({...p, score: scorePlace(p, weather)}));
-
+      const placePool = PLACES.map(p=>({...p, score: scorePlace(p, weather)}));
       const hotelPool = HOTELS.map(h=>({...h, score: scoreHotel(h)}));
 
-      const biases = nights>0
-        ? ['trend','view','history']     // 박 있으면 테마 다양화
-        : ['walk','trend','view'];       // 당일은 산책/트렌드/뷰 위주
+      const biases = nights>0 ? ['trend','view','history'] : ['walk','trend','view'];
 
       const proposals = [];
       for(let i=0;i<3;i++){
         const bias = biases[i];
-        const acts = selectActivities(placePool, actBudget, maxPlaces, strict, bias);
+        const actsRaw = selectActivities(placePool, actBudget, maxPlaces, strict, bias, inout);
+        // NN 정렬
+        const ordered = nearestNeighborOrder(actsRaw, center);
         const hotels = selectHotels(hotelPool, nights, hotelBudget, strict);
-
-        const ordered = orderRouteByNN(acts, center);
         const blocks = buildTimeline(ordered, hotels, mode);
-        const actTotal = acts.reduce((s,p)=>s+(p.cost||0),0);
+
+        const actTotal = ordered.reduce((s,p)=>s+(p.cost||0),0);
         const hotelTotal = hotels.reduce((s,h)=>s+(h.nightCost||0),0);
         proposals.push({
           id: i+1, bias, blocks,
@@ -380,7 +387,7 @@
       return proposals;
     }
 
-    // ===== 렌더링 =====
+    // 지도 렌더링
     function clearRoutes(){
       ['route1','route2','route3'].forEach(k=>{ if(layers[k]){ map.removeLayer(layers[k]); layers[k]=null; }});
       layers.markers.clearLayers();
@@ -478,12 +485,26 @@
       document.getElementById('status').textContent = '해당 구의 장소/숙소 로딩 중…';
 
       try{
-        const [placeRaw, hotelRaw] = await Promise.all([
-          fetchArea(SEOUL_AREACODE, sigungu, 12, 200), // 관광지
-          fetchArea(SEOUL_AREACODE, sigungu, 32, 200)  // 숙박
+        const [raw12, raw14, raw28, raw32] = await Promise.all([
+          fetchArea(SEOUL_AREACODE, sigungu, 12, 200),  // 관광지
+          fetchArea(SEOUL_AREACODE, sigungu, 14, 120),  // 문화시설(실내 다수)
+          fetchArea(SEOUL_AREACODE, sigungu, 28, 120),  // 레포츠/체험
+          fetchArea(SEOUL_AREACODE, sigungu, 32, 200),  // 숙박
         ]);
-        PLACES = mapItemsToPlaces(placeRaw);
-        HOTELS = mapItemsToHotels(hotelRaw);
+        PLACES = [
+          ...mapItemsToPlaces(raw12),
+          ...mapItemsToPlaces(raw14),
+          ...mapItemsToPlaces(raw28),
+        ];
+        HOTELS = mapItemsToHotels(raw32);
+
+        // 중복 제거(제목+좌표 근사)
+        const seen = new Set();
+        PLACES = PLACES.filter(p=>{
+          const k = `${p.name}|${p.lat.toFixed(4)}|${p.lng.toFixed(4)}`;
+          if(seen.has(k)) return false; seen.add(k); return true;
+        });
+
         document.getElementById('status').textContent = `로드 완료: 장소 ${PLACES.length} · 숙소 ${HOTELS.length}`;
         map.setView([lat,lng], 13);
         layers.markers.clearLayers();
@@ -506,7 +527,6 @@
       });
       renderProposals(currentProposals);
 
-      // 기본으로 제안 1 지도 표시
       drawProposalOnMap(currentProposals[0]);
       updateSummary(currentProposals[0].money.actTotal, currentProposals[0].money.hotelTotal);
 
