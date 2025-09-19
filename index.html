@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TrendTrip | 서울 구 단위 자동 코스 (감정·예산 최적화)</title>
-  <meta name="description" content="감정·트렌드·예산·날씨를 반영해 서울 '구' 단위로 2~3개의 자동 여행 코스(숙소 포함)를 제안합니다. 큰 예산일수록 고급으로 업그레이드합니다." />
+  <title>TrendTrip | 서울 구 단위 자동 코스 (감정·예산 최적화·멀티감정)</title>
+  <meta name="description" content="감정·트렌드·예산·날씨를 반영해 서울 '구' 단위로 3개의 자동 여행 코스(숙소 포함)를 제안합니다. 감정 키워드를 여러 개 선택하거나 직접 추가할 수 있어요." />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -20,6 +20,7 @@
     .pill{padding:.35rem .7rem;border:1px solid #e5e7eb;border-radius:999px;font-size:.8rem}
     .chip{border:1px solid #e5e7eb;border-radius:999px;padding:.35rem .7rem;font-size:.85rem;cursor:pointer;user-select:none}
     .chip.active{background:#0ea5e910;border-color:#0ea5e9;color:#0369a1}
+    .chip.small{padding:.25rem .55rem;font-size:.78rem}
     .route-color-1{color:#0ea5e9}
     .route-color-2{color:#22c55e}
     .route-color-3{color:#f59e0b}
@@ -30,7 +31,7 @@
   <header class="sticky top-0 z-40">
     <div class="max-w-6xl mx-auto my-3 px-4 py-3 flex items-center justify-between bg-white/70 backdrop-blur rounded-xl border">
       <div class="font-extrabold text-lg flex items-center gap-2"><span class="text-2xl">🧭</span> TrendTrip</div>
-      <div class="text-sm text-gray-500">서울 · 구 단위 자동 코스(감정·예산 최적화)</div>
+      <div class="text-sm text-gray-500">서울 · 구 단위 자동 코스(감정·예산 최적화·멀티감정)</div>
     </div>
   </header>
 
@@ -40,8 +41,8 @@
       <div class="card">
         <div class="badge mb-2">여행 설정</div>
 
-        <!-- 감정 입력 -->
-        <label class="block text-sm mb-1">현재 감정(선택 또는 직접 입력)</label>
+        <!-- 감정 멀티 선택 -->
+        <label class="block text-sm mb-1">감정 키워드(여러 개 선택 가능)</label>
         <div id="emotionChips" class="flex flex-wrap gap-2 mb-2">
           <span data-em="힐링" class="chip">힐링</span>
           <span data-em="설렘" class="chip">설렘</span>
@@ -50,10 +51,14 @@
           <span data-em="사색" class="chip">사색</span>
           <span data-em="활력" class="chip">활력</span>
         </div>
-        <input id="emotionInput" class="w-full border rounded-xl px-3 py-2 mb-2" placeholder="예: 힐링이 필요해, 야경 보고 싶어, 실내에서 쉬고 싶어…" />
-        <div class="text-xs text-gray-500 mb-3" id="emotionStatus">감정을 선택/입력하면 추천 편향과 코스 구성이 달라집니다.</div>
+        <div class="flex gap-2 items-center">
+          <input id="emotionInput" class="flex-1 border rounded-xl px-3 py-2" placeholder="원하는 감정을 입력 후 Enter로 추가(최대 6개)" />
+          <button id="emotionClear" class="btn btn-outline">초기화</button>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2" id="emotionSelected"></div>
+        <div class="text-xs text-gray-500 mt-2" id="emotionStatus">선택된 감정: 없음</div>
 
-        <label class="block text-sm mb-1">서울 구 선택</label>
+        <label class="block text-sm mt-4 mb-1">서울 구 선택</label>
         <select id="district" class="w-full border rounded-xl px-3 py-2">
           <option value="4"  data-center="37.5639,127.0364">성동구</option>
           <option value="5"  data-center="37.5387,127.0822">광진구</option>
@@ -119,11 +124,11 @@
       <div class="card">
         <div class="badge mb-2">기능 요약</div>
         <ol class="list-decimal pl-5 text-sm text-gray-700 space-y-1">
-          <li>감정 기반 맞춤 추천: 감정을 키워드로 변환해 테마 매핑 후 리스트 생성</li>
-          <li>트렌드 기반 장소 추천(FOMO 점수): 인기·검색량 가중</li>
-          <li>예산 기반 최적 경로: 조건 최적화로 루트·지도 생성</li>
-          <li>날씨 기반 실내/실외 추천: 기상 조건 반영</li>
-          <li>피드백·저장(추가 예정): 코스 저장 및 후기 작성</li>
+          <li>감정 기반 맞춤 추천(멀티 감정 가중)</li>
+          <li>트렌드/FOMO 기반 장소 점수화</li>
+          <li>예산 기반 최적 루트 & 리밸런싱</li>
+          <li>날씨 기반 실내/실외 반영</li>
+          <li>코스 저장/후기(추가 예정)</li>
         </ol>
       </div>
     </section>
@@ -147,15 +152,14 @@
   </main>
 
   <script>
-    /* =============== 설정/상태 =============== */
+    /* ================= 공통 상태/지도 ================= */
     const TOURAPI_PROXY = "/api/tourapi";
     const SEOUL_AREACODE = 1;
     const TARGET_UTIL = 0.95;
 
-    let PLACES = []; // 12+14+28
-    let HOTELS = []; // 32
+    let PLACES = [];
+    let HOTELS = [];
 
-    // 지도
     let map, layers = { markers: null, route1:null, route2:null, route3:null };
     (function initMap(){
       map = L.map('map').setView([37.5665,126.9780], 12);
@@ -163,70 +167,63 @@
       layers.markers = L.layerGroup().addTo(map);
     })();
 
-    /* =============== 감정 매핑 =============== */
-    // 감정 → 테마/타입/유료성/프리미엄/시작-점심 시각 선호
-    function emotionProfile(textRaw){
-      const t = (textRaw||"").trim();
-      const e = t || selectedEmotion || "힐링";
-      const key = /설렘|두근|야경|뷰/.test(e) ? "설렘"
-               : /위로|휴식|편안|실내|카페|잔잔/.test(e) ? "위로"
-               : /모험|액티브|체험|레포츠|스릴/.test(e) ? "모험"
-               : /사색|고요|역사|전시|미술|독서/.test(e) ? "사색"
-               : /활력|에너지|파워|힙|트렌드/.test(e) ? "활력"
-               : "힐링";
+    /* ================= 감정 멀티 선택 ================= */
+    const MAX_EMOTIONS = 6;
+    const selectedEmotions = new Set();
 
-      // 기본값
-      const base = {
-        tagBoost: { 산책:2, 힐링:2, 뷰:0, 설렘:0, 역사:0, 사색:0, 트렌드:1 },
-        inoutHint: "any",
-        wantPaidRatio: 0.45,
-        premiumInclination: 0.2,
-        startMin: 10*60,
-        lunchMin: 13*60
-      };
-
-      const map = {
-        "힐링": {
-          tagBoost:{ 산책:4, 힐링:4, 뷰:1, 설렘:0, 역사:1, 사색:1, 트렌드:0 },
-          inoutHint:"outdoor", wantPaidRatio:0.35, premiumInclination:0.15, startMin:10*60, lunchMin:13*60
-        },
-        "설렘": {
-          tagBoost:{ 뷰:4, 설렬:4, 산책:1, 힐링:1, 트렌드:2 }, inoutHint:"outdoor",
-          wantPaidRatio:0.5, premiumInclination:0.3, startMin:11*60, lunchMin:12*60+30
-        },
-        "위로": {
-          tagBoost:{ 사색:3, 역사:1, 힐링:3, 산책:1, 트렌드:0 }, inoutHint:"indoor",
-          wantPaidRatio:0.3, premiumInclination:0.2, startMin:12*60, lunchMin:14*60
-        },
-        "모험": {
-          tagBoost:{ 트렌드:2, 뷰:1 }, inoutHint:"outdoor", wantPaidRatio:0.75,
-          premiumInclination:0.45, startMin:9*60, lunchMin:13*60
-        },
-        "사색": {
-          tagBoost:{ 사색:4, 역사:3, 힐링:1 }, inoutHint:"indoor",
-          wantPaidRatio:0.4, premiumInclination:0.2, startMin:10*60+30, lunchMin:13*60
-        },
-        "활력": {
-          tagBoost:{ 트렌드:4, 뷰:2, 산책:1 }, inoutHint:"any",
-          wantPaidRatio:0.6, premiumInclination:0.35, startMin:9*60+30, lunchMin:12*60+30
-        }
-      };
-      return { name:key, ...(map[key]||base) };
+    function renderSelectedEmotions(){
+      const box = document.getElementById('emotionSelected');
+      box.innerHTML = '';
+      if (selectedEmotions.size===0){
+        document.getElementById('emotionStatus').textContent = '선택된 감정: 없음';
+        return;
+      }
+      document.getElementById('emotionStatus').textContent = '선택된 감정: ' + Array.from(selectedEmotions).join(', ');
+      Array.from(selectedEmotions).forEach(em=>{
+        const span = document.createElement('span');
+        span.className = 'chip small';
+        span.textContent = em + ' ✕';
+        span.onclick = ()=>{ toggleEmotion(em); };
+        box.appendChild(span);
+      });
     }
 
-    let selectedEmotion = "";
-    // 감정 칩 UI
-    document.addEventListener('click', (e)=>{
-      if(e.target.classList.contains('chip')){
-        document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-        e.target.classList.add('active');
-        selectedEmotion = e.target.dataset.em || "";
-        document.getElementById('emotionInput').value = "";
-        document.getElementById('emotionStatus').textContent = `선택 감정: ${selectedEmotion}`;
+    function toggleEmotion(em){
+      if(selectedEmotions.has(em)){ selectedEmotions.delete(em); }
+      else{
+        if(selectedEmotions.size>=MAX_EMOTIONS){ alert('감정은 최대 '+MAX_EMOTIONS+'개까지 선택할 수 있어요.'); return; }
+        selectedEmotions.add(em);
+      }
+      document.querySelectorAll('#emotionChips .chip').forEach(c=>{
+        const v = c.dataset.em;
+        c.classList.toggle('active', selectedEmotions.has(v));
+      });
+      renderSelectedEmotions();
+    }
+
+    document.getElementById('emotionChips').addEventListener('click', (e)=>{
+      const chip = e.target.closest('.chip');
+      if(!chip) return;
+      toggleEmotion(chip.dataset.em);
+    });
+
+    document.getElementById('emotionInput').addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){
+        const v = e.target.value.trim();
+        if(!v) return;
+        if(v.length>16){ alert('키워드는 16자 이하로 입력해 주세요.'); return; }
+        toggleEmotion(v);
+        e.target.value = '';
       }
     });
 
-    /* =============== 공공데이터 로딩 =============== */
+    document.getElementById('emotionClear').onclick = ()=>{
+      selectedEmotions.clear();
+      document.querySelectorAll('#emotionChips .chip').forEach(c=>c.classList.remove('active'));
+      renderSelectedEmotions();
+    };
+
+    /* ================= 데이터 적재 ================= */
     async function fetchArea(areaCode, sigunguCode, contentTypeId, numOfRows=120){
       const u = new URL(TOURAPI_PROXY, location.origin);
       u.searchParams.set("by","area");
@@ -303,7 +300,7 @@
       })).filter(h=>isFinite(h.lat)&&isFinite(h.lng));
     }
 
-    /* =============== 점수/거리/셔플 유틸 =============== */
+    /* ================= 유틸 ================= */
     function scorePlace(p, weather){
       const fomo = p.fomo/10;
       const weatherBoost = (weather==='rainy' && p.type==='indoor') ? 6 : (weather==='sunny' && p.type==='outdoor') ? 4 : 0;
@@ -339,11 +336,75 @@
     const clamp = (x,lo,hi)=> Math.max(lo, Math.min(hi, x));
     function toHHMM(m){ const h=Math.floor(m/60), mm=String(m%60).padStart(2,'0'); return `${h}:${mm}` }
 
-    /* =============== 프로파일(감정 + 제안별 차등) =============== */
+    /* ================= 감정 매핑/집계 ================= */
+    // 개별 감정 → 기본 성향
+    function singleEmotionProfile(e){
+      const base = {
+        tagBoost:{}, inoutHint:"any", wantPaidRatio:0.45, premiumInclination:0.2,
+        startMin:10*60, lunchMin:13*60
+      };
+      if(/설렘|두근|야경|뷰/i.test(e)) return {
+        tagBoost:{ 뷰:4, 설렘:3, 산책:1, 힐링:1, 트렌드:2 }, inoutHint:"outdoor",
+        wantPaidRatio:0.5, premiumInclination:0.3, startMin:11*60, lunchMin:12*60+30
+      };
+      if(/위로|휴식|편안|실내|카페|잔잔/i.test(e)) return {
+        tagBoost:{ 사색:3, 힐링:3, 산책:1 }, inoutHint:"indoor",
+        wantPaidRatio:0.3, premiumInclination:0.2, startMin:12*60, lunchMin:14*60
+      };
+      if(/모험|액티브|체험|레포츠|스릴/i.test(e)) return {
+        tagBoost:{ 트렌드:2, 뷰:1 }, inoutHint:"outdoor",
+        wantPaidRatio:0.75, premiumInclination:0.45, startMin:9*60, lunchMin:13*60
+      };
+      if(/사색|고요|역사|전시|미술|독서/i.test(e)) return {
+        tagBoost:{ 사색:4, 역사:3, 힐링:1 }, inoutHint:"indoor",
+        wantPaidRatio:0.4, premiumInclination:0.2, startMin:10*60+30, lunchMin:13*60
+      };
+      if(/활력|에너지|파워|힙|트렌드/i.test(e)) return {
+        tagBoost:{ 트렌드:4, 뷰:2, 산책:1 }, inoutHint:"any",
+        wantPaidRatio:0.6, premiumInclination:0.35, startMin:9*60+30, lunchMin:12*60+30
+      };
+      if(/힐링|휴양|자연/i.test(e)) return {
+        tagBoost:{ 산책:4, 힐링:4, 뷰:1, 역사:1, 사색:1 }, inoutHint:"outdoor",
+        wantPaidRatio:0.35, premiumInclination:0.15, startMin:10*60, lunchMin:13*60
+      };
+      // 사용자 정의 키워드: 트렌드 가벼운 가중
+      return { ...base, tagBoost:{ 트렌드:1 } };
+    }
+
+    // 여러 감정의 성향을 가중 평균/결합
+    function mergeEmotionProfiles(list){
+      if(!list || list.length===0) return {
+        name:'(없음)', tagBoost:{ 트렌드:1 }, inoutHint:'any',
+        wantPaidRatio:0.45, premiumInclination:0.2, startMin:10*60, lunchMin:13*60
+      };
+      const profs = list.map(singleEmotionProfile);
+      const sum = { tagBoost:{}, start:0, lunch:0, paid:0, prem:0, indoor:0, outdoor:0, any:0 };
+      profs.forEach(p=>{
+        for(const [k,v] of Object.entries(p.tagBoost||{})){
+          sum.tagBoost[k] = (sum.tagBoost[k]||0)+v;
+        }
+        sum.start += p.startMin; sum.lunch += p.lunchMin;
+        sum.paid += p.wantPaidRatio; sum.prem += p.premiumInclination;
+        if(p.inoutHint==='indoor') sum.indoor++; else if(p.inoutHint==='outdoor') sum.outdoor++; else sum.any++;
+      });
+      const inout = (sum.indoor>sum.outdoor && sum.indoor>sum.any) ? 'indoor'
+                   : (sum.outdoor>sum.indoor && sum.outdoor>sum.any) ? 'outdoor'
+                   : 'any';
+      const n = profs.length;
+      return {
+        name: list.join(', '),
+        tagBoost: sum.tagBoost,
+        inoutHint: inout,
+        wantPaidRatio: clamp(sum.paid/n, 0.2, 0.85),
+        premiumInclination: clamp(sum.prem/n, 0, 0.9),
+        startMin: Math.round(sum.start/n),
+        lunchMin: Math.round(sum.lunch/n)
+      };
+    }
+
+    /* ================= 제안 프로파일 ================= */
     function proposalProfiles(mode, weather, inout, emotionProf){
       const hasNight = mode!=="6h";
-
-      // 사용자 in/out과 감정 힌트를 섞음
       const emotionInOut = emotionProf.inoutHint;
       const blend = (base)=> (base==="any" ? emotionInOut : base);
       const inOutVariants = {
@@ -351,13 +412,9 @@
         2: inout==="any" ? (weather==="rainy"?"indoor":"outdoor") : inout,
         3: inout==="any" ? (emotionInOut==="indoor"?"indoor":"outdoor") : inout
       };
+      const biases = hasNight ? ['trend_view','history_walk','premium_paid']
+                              : ['walk_view','trend_indoor','premium_paid'];
 
-      // 감정 선호가 기본 편향에 가산되도록 이름만 다르게 구성
-      const biases = hasNight
-        ? ['trend_view','history_walk','premium_paid']
-        : ['walk_view','trend_indoor','premium_paid'];
-
-      // 예산 배분: 감정의 유료성향을 3개 제안에 약간씩 흩뿌림
       const ePaid = emotionProf.wantPaidRatio;
       const splits = hasNight
         ? [[0.45,0.55],[clamp(ePaid+0.1,0.3,0.8), 1 - clamp(ePaid+0.1,0.3,0.8)],[clamp(ePaid-0.1,0.2,0.9), 1 - clamp(ePaid-0.1,0.2,0.9)]]
@@ -384,21 +441,15 @@
       }));
     }
 
-    /* =============== 액티비티/호텔 선택 =============== */
+    /* ================= 선택 로직 ================= */
     function selectActivities(pool, conf, actBudget, maxPlaces, strict, alreadyPicked, rand){
-      // 감정 태그 가중치
       const eboost = (p)=>{
         let s=0;
         for(const [k,v] of Object.entries(conf.emotion.tagBoost||{})){
-          if(k==='설렬'){ // 오타 보정
-            if(p.themes.includes('설렘')) s+=v;
-            continue;
-          }
           if(p.themes.includes(k)) s+=v;
         }
         return s;
       };
-
       const tagBoost = p=>{
         let s=eboost(p);
         if(conf.bias==='trend_view'){ s += (p.themes.includes('트렌드')?3:0) + (p.themes.includes('뷰')?3:0); }
@@ -417,7 +468,7 @@
       const pickedSet = new Set(alreadyPicked);
       base.forEach(p=>{ if(pickedSet.has(p.id)) p.score2 -= 5; });
 
-      base = base.sort((a,b)=> b.score2 - a.score2).slice(0,150);
+      base = base.sort((a,b)=> b.score2 - a.score2).slice(0,160);
       base = seededShuffle(base, rand);
 
       const perItemCeil = maxPlaces>0
@@ -427,7 +478,7 @@
       let candidates = base.filter(p => (p.cost||0) <= perItemCeil);
       if(candidates.length < maxPlaces*1.2) candidates = base;
 
-      const wantPaidRatio = conf.emotion ? clamp(conf.emotion.wantPaidRatio*0.5 + (conf.bias==='premium_paid'?0.4:0.0), 0.25, 0.85) : 0.45;
+      const wantPaidRatio = clamp(conf.emotion.wantPaidRatio*0.5 + (conf.bias==='premium_paid'?0.4:0.0), 0.25, 0.85);
       const paid = candidates.filter(p=>(p.cost||0)>0);
       const free = candidates.filter(p=>(p.cost||0)===0);
 
@@ -478,7 +529,15 @@
       return chosen.slice(0,nights);
     }
 
-    /* =============== 타임라인/리밸런싱 =============== */
+    /* ================= 타임라인/리밸런싱 ================= */
+    function buildTripMeta(mode){
+      const nights = mode==="1n2d"?1 : mode==="2n3d"?2 : 0;
+      const days = nights>0 ? nights+1 : 1;
+      const perDay = nights===0 ? 3 : 4;
+      const maxPlaces = days * perDay;
+      return { nights, days, perDay, maxPlaces };
+    }
+
     function buildTimeline(orderedPlaces, hotels, mode, conf, center){
       const { nights, days } = buildTripMeta(mode);
       const start = conf.startMin;
@@ -555,23 +614,17 @@
       return proposal;
     }
 
-    /* =============== 메타/생성/렌더 =============== */
-    function buildTripMeta(mode){
-      const nights = mode==="1n2d"?1 : mode==="2n3d"?2 : 0;
-      const days = nights>0 ? nights+1 : 1;
-      const perDay = nights===0 ? 3 : 4;
-      const maxPlaces = days * perDay;
-      return { nights, days, perDay, maxPlaces };
-    }
-
+    /* ================= 제안 생성/렌더 ================= */
     function generateProposals({center, mode, budget, weather, inout, strict}){
       const { maxPlaces, nights } = buildTripMeta(mode);
       const placePool = PLACES.map(p=>({...p, score: scorePlace(p, weather)}));
       const hotelPool = HOTELS.map(h=>({...h, score: scoreHotel(h)}));
 
-      const emotionText = document.getElementById('emotionInput').value.trim() || selectedEmotion;
-      const eprof = emotionProfile(emotionText);
-      document.getElementById('emotionStatus').textContent = `적용 감정: ${eprof.name} (선호: ${eprof.inoutHint}, 유료비중≈${Math.round(eprof.wantPaidRatio*100)}%)`;
+      const emotionList = Array.from(selectedEmotions);
+      const eprof = mergeEmotionProfiles(emotionList);
+      document.getElementById('emotionStatus').textContent =
+        (emotionList.length? '선택된 감정: ':'선택된 감정: 없음 ') + (eprof.name||'-') +
+        ` / 선호:${eprof.inoutHint} / 유료≈${Math.round(eprof.wantPaidRatio*100)}%`;
 
       const profiles = proposalProfiles(mode, weather, inout, eprof);
 
@@ -734,7 +787,7 @@
       `;
     }
 
-    /* =============== 이벤트 바인딩 =============== */
+    /* ================= 버튼 이벤트 ================= */
     let currentCenter = { lat:37.5665, lng:126.9780 };
     let currentProposals = [];
 
@@ -787,7 +840,7 @@
       updateSummary(currentProposals[0].money.actTotal, currentProposals[0].money.hotelTotal);
 
       const t = currentProposals[0].money.total.toLocaleString();
-      document.getElementById('status').textContent = `코스 자동 생성 완료 · 제안 3종(감정 반영 + 서로 다른 편향/예산배분/타임라인) · 1안 총액 ~${t}원 (목표 ${Math.round(TARGET_UTIL*100)}%)`;
+      document.getElementById('status').textContent = `코스 자동 생성 완료 · 제안 3종(멀티 감정 + 서로 다른 편향/예산배분/타임라인) · 1안 총액 ~${t}원 (목표 ${Math.round(TARGET_UTIL*100)}%)`;
     };
   </script>
 </body>
