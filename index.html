@@ -36,12 +36,10 @@
   </header>
 
   <main class="max-w-6xl mx-auto px-4 pb-10 grid md:grid-cols-3 gap-6">
-    <!-- 좌측: 설정 -->
     <section class="md:col-span-1 space-y-4">
       <div class="card">
         <div class="badge mb-2">여행 설정</div>
 
-        <!-- 감정 멀티 선택 -->
         <label class="block text-sm mb-1">감정 키워드(여러 개 선택 가능)</label>
         <div id="emotionChips" class="flex flex-wrap gap-2 mb-2">
           <span data-em="힐링" class="chip">힐링</span>
@@ -121,19 +119,8 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="badge mb-2">기능 요약</div>
-        <ol class="list-decimal pl-5 text-sm text-gray-700 space-y-1">
-          <li>감정 기반 맞춤 추천(멀티 감정 가중)</li>
-          <li>트렌드/FOMO 기반 장소 점수화</li>
-          <li>예산 기반 최적 루트 & 리밸런싱</li>
-          <li>날씨 기반 실내/실외 반영</li>
-          <li>코스 저장/후기(추가 예정)</li>
-        </ol>
-      </div>
     </section>
 
-    <!-- 우측: 지도 + 제안 카드 -->
     <section class="md:col-span-2 space-y-4">
       <div class="card">
         <div class="flex items-center justify-between">
@@ -152,7 +139,6 @@
   </main>
 
   <script>
-    /* ================= 공통 상태/지도 ================= */
     const TOURAPI_PROXY = "/api/tourapi";
     const SEOUL_AREACODE = 1;
     const TARGET_UTIL = 0.95;
@@ -167,7 +153,6 @@
       layers.markers = L.layerGroup().addTo(map);
     })();
 
-    /* ================= 감정 멀티 선택 ================= */
     const MAX_EMOTIONS = 6;
     const selectedEmotions = new Set();
 
@@ -223,7 +208,6 @@
       renderSelectedEmotions();
     };
 
-    /* ================= 데이터 적재 ================= */
     async function fetchArea(areaCode, sigunguCode, contentTypeId, numOfRows=120){
       const u = new URL(TOURAPI_PROXY, location.origin);
       u.searchParams.set("by","area");
@@ -300,7 +284,6 @@
       })).filter(h=>isFinite(h.lat)&&isFinite(h.lng));
     }
 
-    /* ================= 유틸 ================= */
     function scorePlace(p, weather){
       const fomo = p.fomo/10;
       const weatherBoost = (weather==='rainy' && p.type==='indoor') ? 6 : (weather==='sunny' && p.type==='outdoor') ? 4 : 0;
@@ -336,8 +319,6 @@
     const clamp = (x,lo,hi)=> Math.max(lo, Math.min(hi, x));
     function toHHMM(m){ const h=Math.floor(m/60), mm=String(m%60).padStart(2,'0'); return `${h}:${mm}` }
 
-    /* ================= 감정 매핑/집계 ================= */
-    // 개별 감정 → 기본 성향
     function singleEmotionProfile(e){
       const base = {
         tagBoost:{}, inoutHint:"any", wantPaidRatio:0.45, premiumInclination:0.2,
@@ -367,11 +348,9 @@
         tagBoost:{ 산책:4, 힐링:4, 뷰:1, 역사:1, 사색:1 }, inoutHint:"outdoor",
         wantPaidRatio:0.35, premiumInclination:0.15, startMin:10*60, lunchMin:13*60
       };
-      // 사용자 정의 키워드: 트렌드 가벼운 가중
       return { ...base, tagBoost:{ 트렌드:1 } };
     }
 
-    // 여러 감정의 성향을 가중 평균/결합
     function mergeEmotionProfiles(list){
       if(!list || list.length===0) return {
         name:'(없음)', tagBoost:{ 트렌드:1 }, inoutHint:'any',
@@ -402,7 +381,6 @@
       };
     }
 
-    /* ================= 제안 프로파일 ================= */
     function proposalProfiles(mode, weather, inout, emotionProf){
       const hasNight = mode!=="6h";
       const emotionInOut = emotionProf.inoutHint;
@@ -441,7 +419,6 @@
       }));
     }
 
-    /* ================= 선택 로직 ================= */
     function selectActivities(pool, conf, actBudget, maxPlaces, strict, alreadyPicked, rand){
       const eboost = (p)=>{
         let s=0;
@@ -529,7 +506,6 @@
       return chosen.slice(0,nights);
     }
 
-    /* ================= 타임라인/리밸런싱 ================= */
     function buildTripMeta(mode){
       const nights = mode==="1n2d"?1 : mode==="2n3d"?2 : 0;
       const days = nights>0 ? nights+1 : 1;
@@ -614,7 +590,6 @@
       return proposal;
     }
 
-    /* ================= 제안 생성/렌더 ================= */
     function generateProposals({center, mode, budget, weather, inout, strict}){
       const { maxPlaces, nights } = buildTripMeta(mode);
       const placePool = PLACES.map(p=>({...p, score: scorePlace(p, weather)}));
@@ -787,7 +762,6 @@
       `;
     }
 
-    /* ================= 버튼 이벤트 ================= */
     let currentCenter = { lat:37.5665, lng:126.9780 };
     let currentProposals = [];
 
